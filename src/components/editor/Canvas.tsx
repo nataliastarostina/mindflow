@@ -98,7 +98,7 @@ function toMarqueeRect(containerRect: DOMRect, screenRect: ScreenRect): MarqueeR
     x: screenRect.left - containerRect.left,
     y: screenRect.top - containerRect.top,
     width: screenRect.right - screenRect.left,
-    height: screenRect.bottom - screenRect.top,
+    height: screenRect.bottom - containerRect.top,
   };
 }
 
@@ -156,6 +156,7 @@ export default function Canvas() {
   const { pushState } = useHistoryStore();
   const { fitView, screenToFlowPosition } = useReactFlow();
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const autoFitMapIdRef = useRef<string | null>(null);
   const marqueeTimerRef = useRef<number | null>(null);
   const marqueePointerStateRef = useRef<{
     pointerId: number;
@@ -342,7 +343,11 @@ export default function Canvas() {
   }, [editingNodeId, mapData, selectedNodeIds, selectedCustomEdgeId, getBranchColor]);
 
   useEffect(() => {
-    if (flowNodes.length === 0) return;
+    const mapId = mapData?.id;
+    if (!mapId || flowNodes.length === 0) return;
+    if (autoFitMapIdRef.current === mapId) return;
+
+    autoFitMapIdRef.current = mapId;
     const timeoutId = window.setTimeout(() => {
       fitView({ padding: 0.3, duration: 300 });
     }, 100);
