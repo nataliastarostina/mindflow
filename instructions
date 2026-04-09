@@ -1,0 +1,2099 @@
+# 1. PRODUCT GOAL
+
+## 1.1. Что это за продукт
+
+Продукт — это **visual web mind map editor** для **ручного создания и редактирования mind maps**. Основной сценарий не AI-генерация, а быстрое, приятное и визуально чистое построение карты мышления вручную.
+
+## 1.2. Главная ценность
+
+Сервис должен давать пользователю ощущение, что он:
+
+* мгновенно начинает работу без обучения;
+* почти весь экран посвящает карте, а не интерфейсу;
+* строит структуру мыслей быстро, через клавиатуру и простые действия мышью;
+* всегда видит красивую, читаемую, аккуратно уложенную карту;
+* может стилизовать и перестраивать ветки без тяжелых боковых панелей;
+* получает collaborative-ready основу, но без enterprise-first усложнения.
+
+## 1.3. Ключевые характеристики продукта
+
+* **Infinite canvas** как базовая модель пространства.
+* **Ручное создание и редактирование карт** как основной use case.
+* **Быстрое добавление тем и подтем** через мышь, хоткеи и contextual toolbar.
+* Фокус на **visual thinking**, а не на документообороте.
+* **Collaborative-ready architecture**, но без перегруза в MVP.
+* **Desktop-first experience** как основной приоритет.
+* **Mobile-adaptive viewing/editing** для просмотра и легких правок.
+* **Очень низкий порог входа** для пользователя, который хочет просто “начать собирать карту”.
+
+## 1.4. Продуктовая формула
+
+Если упростить до одной фразы:
+
+**Это легкий, быстрый, map-first редактор для ручного построения mind maps на бесконечном полотне, где управление происходит рядом с выбранным узлом, а не через тяжелые интерфейсные панели.**
+
+---
+
+# 2. REFERENCE UX PRINCIPLES
+
+## 2.1. Canvas-first
+
+Интерфейс должен подчиняться карте. Пользователь всегда должен чувствовать, что главный объект — не приложение, а его mind map.
+
+## 2.2. Чистый светлый canvas
+
+Фон — очень светлый, нейтральный, без агрессивных текстур и отвлекающих паттернов. Карта должна визуально “дышать”.
+
+## 2.3. Минималистичный интерфейс
+
+Постоянно видимые controls только самые необходимые. Всё вторичное должно открываться контекстно, по действию пользователя.
+
+## 2.4. Максимум пространства карте
+
+В основном сценарии редактирования нельзя держать тяжелую правую панель, которая постоянно съедает ширину. Вместо нее — компактные плавающие контролы и popovers.
+
+## 2.5. Быстрое in-place редактирование
+
+Редактирование текста темы должно происходить прямо на canvas, без перевода фокуса в отдельную форму.
+
+## 2.6. Выделение узла через контур/обводку
+
+Selected state не должен быть тяжёлым. Нужен тонкий, понятный outline или мягкий glow, не ломающий визуальную чистоту.
+
+## 2.7. Branch-centric editing
+
+Редактирование должно быть завязано не только на node, но и на ветку как визуальную единицу: цвет ветки, стиль линии, форма темы, наследование по иерархии.
+
+## 2.8. Действия рядом с выделенным topic
+
+Пользователь не должен “ездить” глазами в правый sidebar ради частых операций. Основные действия — рядом с выбранной темой.
+
+## 2.9. Низкая визуальная шумность
+
+Иконки, панели, popovers, границы, hover-состояния — все должны быть сдержанными. Нельзя допускать dashboard-feel внутри редактора.
+
+## 2.10. Высокая скорость ручного построения карты
+
+Редактор должен провоцировать пользователя продолжать строить карту: Enter, Tab, drag, inline edit, повтор действий без лишних кликов.
+
+## 2.11. Фокус на readability
+
+Даже при росте карты интерфейс должен сохранять читаемость: достаточные отступы, аккуратные кривые веток, предсказуемое автопозиционирование.
+
+## 2.12. Красота структуры веток
+
+Ветка — не просто линия связи, а визуальный элемент, который помогает ориентироваться. Она должна быть тонкой, плавной, цветной, но не кричащей.
+
+---
+
+# 3. EDITOR LAYOUT ARCHITECTURE
+
+## Общая схема экрана
+
+Экран редактора делится на 6 слоев:
+
+1. top frame;
+2. canvas layer;
+3. floating control layer;
+4. contextual editing layer;
+5. modal/popover layer;
+6. transient feedback layer.
+
+---
+
+## 3A. Верхняя левая зона
+
+### Назначение
+
+Содержит identity карты, действия уровня файла и быстрый доступ к поиску.
+
+### Состав
+
+* Название карты
+* Dropdown map actions
+* Search input
+* Upgrade / plan CTA — опционально
+
+### Позиция
+
+Верхний левый угол, с безопасным отступом 16–24 px от края окна.
+
+### Размеры и компактность
+
+* Высота зоны: 44–52 px
+* Ширина: адаптивная, не более 40–45% экрана
+* Название карты занимает центральный вес внутри блока
+
+### Поведение
+
+**Hover:** подсветка интерактивных зон
+**Click:** открытие dropdown / фокус на title / поиск
+**Focus:** title становится editable или открывает rename inline
+
+### Когда скрыт / видим
+
+Всегда видим на desktop. На tablet часть элементов сворачивается в single row. На mobile название и menu могут быть сведены в header bar.
+
+### Desktop
+
+* Title editable inline
+* Search в компактном поле
+* Dropdown map actions по иконке caret / kebab / chevron
+
+### Tablet
+
+* Search может сворачиваться в icon button
+* Upgrade CTA скрывается первой
+
+### Mobile
+
+* Только back / title / more
+* Search переносится в overlay
+
+---
+
+## 3B. Верхняя правая зона
+
+### Назначение
+
+Глобальные действия по карте и аккаунту.
+
+### Состав
+
+* Upload
+* Export
+* Share
+* Profile / avatar
+
+### Позиция
+
+Верхний правый угол, симметрично верхней левой зоне.
+
+### Размеры
+
+Компактный горизонтальный кластер кнопок высотой 36–44 px.
+
+### Поведение
+
+* Upload и Export открывают popover/menu
+* Share — приоритетная CTA-кнопка
+* Avatar открывает account/workspace menu
+
+### Видимость
+
+Всегда видим на desktop. На tablet может схлопываться часть кнопок в more menu. На mobile share остается, export/upload уходят в overflow.
+
+---
+
+## 3C. Центральная зона
+
+### Назначение
+
+Основной infinite canvas.
+
+### Состав
+
+* Infinite canvas surface
+* Map graph
+* Selection layer
+* Drag layer
+* Temporary guide lines
+* In-place text editor
+
+### Позиция
+
+Занимает всю доступную область под top frame.
+
+### Поведение
+
+* Карта по умолчанию центрируется
+* Пользователь может pan/zoom
+* При открытии карты viewport подстраивается под fit-to-map
+* Автолэйаут сохраняет карту близко к visual center
+
+### Режимы автопозиционирования
+
+* radial
+* right tree
+* left-to-right
+* top-down
+* mixed
+* logical vertical
+
+---
+
+## 3D. Правая вертикальная плавающая панель
+
+### Назначение
+
+Частые инструменты навигации и структуры.
+
+### Состав
+
+* Zoom in
+* Zoom out
+* Map layout switcher / structure tools
+* Style/theme button
+* Undo
+* Redo
+
+### Позиция
+
+Правая сторона canvas, вертикально по центру или чуть ниже центра.
+
+### Размеры
+
+* Ширина 40–48 px
+* Модульная вертикальная колонка из circular или rounded-square controls
+
+### Поведение
+
+* Hover: мягкая подсветка
+* Click: immediate action или popover
+* Undo/redo активны только при наличии history states
+
+### Когда скрыта
+
+На desktop — почти всегда видима. На tablet — может частично схлопываться. На mobile — трансформируется в floating action stack или bottom sheet trigger.
+
+---
+
+## 3E. Нижняя левая панель
+
+### Назначение
+
+Навигация по canvas и состоянию просмотра.
+
+### Состав
+
+* File/doc button
+* Режим карты
+* Zoom controls
+* Fit to screen
+* Center map
+* Mini navigation controls
+
+### Позиция
+
+Нижний левый угол.
+
+### Размеры
+
+Горизонтальный floating bar высотой 36–44 px.
+
+### Поведение
+
+* Fit to screen масштабирует карту целиком в viewport
+* Center map возвращает фокус к логическому центру карты
+* Zoom controls работают пошагово
+* Map mode показывает текущий layout / mode
+
+### Видимость
+
+Постоянно на desktop. На tablet — компактно. На mobile — только fit, zoom, center через bottom controls.
+
+---
+
+## 3F. Contextual floating toolbar у выбранного узла
+
+### Назначение
+
+Основной инструмент редактирования node без тяжелой боковой панели.
+
+### Состав
+
+* Style / topic style
+* Text style
+* Image / media
+* Link
+* Connection
+* Comments
+* More actions
+
+### Позиция
+
+Рядом с выбранным узлом, обычно сверху или сбоку от него, в зависимости от свободного места.
+
+### Размеры
+
+Очень компактный floating toolbar шириной 240–340 px, высота 36–40 px.
+
+### Поведение
+
+* Появляется после node selection
+* Привязан к selected node
+* Не должен перекрывать текст узла и соседние ветки
+* При text editing mode часть кнопок скрывается или меняется
+
+### Видимость
+
+* Показывается при одиночном выделении узла
+* Скрывается при deselect, pan, пустом клике
+* При multi-select показывает ограниченный набор bulk-действий
+
+---
+
+## 3G. Popup panels
+
+### Назначение
+
+Точечное изменение свойств выбранного узла/ветки.
+
+### Виды popover
+
+* Shape / Border / Line
+* Text styles
+* Media panel
+* Link panel
+* Comments composer
+
+### Позиция
+
+Якорятся от contextual toolbar или от кнопки в control panel.
+
+### Размеры
+
+* Малые popovers: 240–320 px
+* Средние: 320–420 px
+* Не более 60% высоты viewport
+
+### Поведение
+
+* Soft shadow
+* Rounded corners
+* Закрытие по outside click / Esc
+* Не блокируют canvas полностью
+
+### Desktop / Tablet / Mobile
+
+* Desktop: classic popover
+* Tablet: enlarged popover / sheet
+* Mobile: bottom sheet или full-screen lightweight panel
+
+---
+
+# 4. CANVAS BEHAVIOR
+
+## 4.1. Infinite canvas
+
+Canvas должен поддерживать виртуально бесконечную область без явных визуальных границ. Пользователь не должен чувствовать “край документа”.
+
+## 4.2. Pan by drag
+
+Панорамирование:
+
+* Space + drag
+* middle mouse drag
+* drag on empty canvas
+* touch drag on mobile/tablet
+
+## 4.3. Zoom in/out
+
+Поддержка:
+
+* колесо мыши + modifier или trackpad pinch
+* controls
+* keyboard shortcuts
+* double-click focus zoom optional
+
+## 4.4. Fit map to viewport
+
+Должно вычисляться по bounding box всех видимых узлов и веток с безопасным padding.
+
+## 4.5. Center map
+
+Возвращает viewport к логическому центру карты, а не просто в координаты 0,0.
+
+## 4.6. Smooth transitions
+
+Все viewport-переходы должны быть плавными:
+
+* fit
+* center
+* jump to search result
+* expand/collapse
+* layout switch
+
+Продолжительность: 160–240 ms.
+
+## 4.7. Selection states
+
+* Hover node
+* Selected node
+* Multi-selected nodes
+* Editing state
+* Dragging state
+* Collapsed state
+* Commented state
+* Linked/media state
+
+## 4.8. Hover states
+
+Hover узла:
+
+* тонкий outline
+* легкий elevation
+* опциональное появление add-controls
+
+Hover ветки:
+
+* тонкое усиление stroke
+* подсказка о возможности selection
+
+## 4.9. Active node state
+
+Активный узел:
+
+* outline 1–2 px
+* subtle highlight
+* anchors/handles если нужно
+* contextual toolbar visible
+
+## 4.10. Inline text editing
+
+Двойной клик или Enter переводят узел в режим редактирования текста:
+
+* контент editable прямо поверх узла
+* autosize по ширине/высоте
+* Enter / Tab — завершение + создание следующей темы
+* Esc — отмена текущего редактирования
+
+## 4.11. Branch redrawing on drag
+
+При drag node/branch связи должны перестраиваться в реальном времени, без лагов и прыжков.
+
+## 4.12. Auto layout after node changes
+
+После добавления, удаления, перемещения или раскрытия веток layout engine должен мягко перестраивать карту с сохранением читаемости.
+
+## 4.13. Intelligent spacing
+
+Система должна:
+
+* учитывать длину текста;
+* не допускать наложения sibling-веток;
+* поддерживать равномерные отступы по depth level;
+* сохранять consistent curve spacing.
+
+## 4.14. Preservation of map readability
+
+Автоперестройка не должна резко ломать ментальную модель карты. Минимум “телепортации” узлов.
+
+## 4.15. Performance on big maps
+
+Цель:
+
+* до 1,000–2,000 nodes без критической деградации;
+* smooth pan/zoom на обычных рабочих ноутбуках;
+* выборочная перерисовка;
+* virtualization for non-visible heavy overlays.
+
+---
+
+# 5. NODE SYSTEM
+
+## 5.1. Типы узлов
+
+* **Central topic** — главный корневой узел
+* **Primary topic** — узел первого уровня
+* **Subtopic** — дочерний узел
+* **Floating topic** — отдельная тема без связи с main tree
+* **Relationship / connection behavior** — не node сам по себе, а отдельная сущность связи
+* **Callout-like topic** — опциональный вспомогательный визуальный узел
+
+## 5.2. Базовая структура объекта Node
+
+```ts
+type Node = {
+  id: string
+  mapId: string
+  parentId: string | null
+  orderIndex: number
+  type: 'central' | 'primary' | 'subtopic' | 'floating'
+  text: string
+  note?: string
+  commentCount: number
+  link?: LinkRef | null
+  attachmentIds: string[]
+  stylePresetId?: string | null
+  shape: NodeShape
+  fillColor?: string | null
+  borderColor?: string | null
+  lineColor?: string | null
+  fontFamily?: string | null
+  fontSize?: number | null
+  fontWeight?: 'regular' | 'medium' | 'semibold' | 'bold'
+  fontStyle?: 'normal' | 'italic'
+  textDecoration?: 'none' | 'underline'
+  textColor?: string | null
+  icon?: IconRef | null
+  image?: ImageRef | null
+  expanded: boolean
+  x?: number | null
+  y?: number | null
+  autoLayout: {
+    depth: number
+    direction?: 'left' | 'right' | 'top' | 'bottom'
+    branchIndex: number
+    layoutMode: string
+    inheritedBranchColor?: string | null
+    manualPositionOverride?: boolean
+  }
+  createdAt: string
+  updatedAt: string
+}
+```
+
+## 5.3. Поля и их роль
+
+* **id** — уникальный идентификатор узла
+* **parentId** — связь с родителем
+* **orderIndex** — порядок среди siblings
+* **text** — основной текст узла
+* **note** — расширенное описание
+* **commentCount** — количество комментариев
+* **link** — URL или internal link
+* **attachment** — изображения/файлы
+* **style preset** — ссылка на пресет оформления
+* **shape** — геометрия узла
+* **fill/border/line colors** — визуальный стиль
+* **font styles** — текстовое оформление
+* **icon/image** — дополнительные визуальные элементы
+* **expanded/collapsed** — состояние раскрытия
+* **x/y** — координаты для floating/manual mode
+* **auto-layout metadata** — служебная информация layout engine
+
+## 5.4. Центральный узел
+
+* самый визуально значимый;
+* расположен по центру;
+* имеет distinct default style;
+* не может существовать без карты;
+* один central topic на карту в MVP.
+
+## 5.5. Primary topic
+
+* наследует branch direction;
+* получает distinct color при radial mode;
+* является контейнером крупной ветки.
+
+## 5.6. Subtopic
+
+* подчинен branch style своего родителя;
+* по умолчанию наследует color lineage;
+* меньше по визуальному весу.
+
+## 5.7. Floating topic
+
+* независим от центрального дерева;
+* нужен для brainstorming / side notes;
+* может позже быть attached в дерево.
+
+## 5.8. Connection behavior
+
+Connection — отдельная сущность:
+
+* sourceNodeId
+* targetNodeId
+* label?
+* lineStyle
+* color
+* arrowheads?
+* control points optional
+
+## 5.9. Callout-like behavior
+
+Опционально в phase 2:
+
+* узел-пояснение
+* может привязываться к другому узлу без включения в tree hierarchy
+
+---
+
+# 6. MANUAL MIND MAP CREATION FLOWS
+
+Это ключевой раздел.
+
+---
+
+## 6.1. Создать новую пустую карту
+
+### Триггер
+
+* Create new map button
+* New blank map from dashboard
+
+### Шаги пользователя
+
+1. Нажимает “Create new map”
+2. Выбирает blank map
+3. Попадает в editor
+4. Видит central topic в центре или пустой placeholder
+
+### Системное поведение
+
+* Создается Map entity
+* Создается central topic
+* Viewport делает fit и center
+* Title map в editable state
+
+### Клавиатура
+
+* Сразу фокус на title карты или central topic text
+* Enter подтверждает
+
+### Возможные ошибки
+
+* network delay
+* creation failed
+* autosave lag
+
+### Desired UX outcome
+
+Пользователь за 2–3 секунды уже начинает писать первую мысль.
+
+---
+
+## 6.2. Создать central topic
+
+### Триггер
+
+Автосоздание при blank map.
+
+### Шаги
+
+1. Пользователь видит центральный узел
+2. Начинает ввод текста
+
+### Системное поведение
+
+* Placeholder текст
+* Inline editor активен
+* Размер узла подстраивается под текст
+
+### Хоткеи
+
+* Enter завершить
+* Tab сразу создать child
+
+### Ошибки
+
+* пустой текст
+* быстрый blur
+
+### Desired UX outcome
+
+Central topic задается мгновенно, без формы и диалогов.
+
+---
+
+## 6.3. Добавить sibling topic
+
+### Триггер
+
+* Enter на выбранном узле
+* кнопка add sibling в more actions
+* context menu
+
+### Шаги
+
+1. Выделить узел
+2. Нажать Enter
+3. Новый sibling появляется рядом
+4. Пользователь вводит текст
+
+### Системное поведение
+
+* Унаследовать branch style level rules
+* Вставить node в correct sibling order
+* Перестроить layout локально
+
+### Хоткеи
+
+* Enter — sibling below
+* Shift+Enter — sibling above
+
+### Ошибки
+
+* root sibling неуместен для central topic
+* blocked if map locked
+
+### Desired UX outcome
+
+Пользователь может “простреливать” список соседних тем подряд без мыши.
+
+---
+
+## 6.4. Добавить child topic
+
+### Триггер
+
+* Tab
+* add child button
+* quick plus near node
+
+### Шаги
+
+1. Выделить узел
+2. Нажать Tab
+3. Появляется дочерняя тема
+4. Начать ввод
+
+### Системное поведение
+
+* child получает inherited direction
+* создается связь parent-child
+* локальный layout update
+
+### Хоткеи
+
+* Tab / Ins
+
+### Ошибки
+
+* central topic collapsed state conflict
+* readonly mode
+
+### Desired UX outcome
+
+Добавление подузла — самое быстрое действие в редакторе.
+
+---
+
+## 6.5. Добавить nested subtopic
+
+### Триггер
+
+Повторный Tab на последнем child или add child на subtopic.
+
+### Поведение
+
+Редактор должен поддерживать глубокое создание без потери контекста:
+parent → child → child → sibling → child.
+
+### Desired UX outcome
+
+Построение дерева из клавиатуры почти как мыслительный поток.
+
+---
+
+## 6.6. Быстро вводить текст и сразу создавать следующий узел
+
+### Триггер
+
+Во время inline editing
+
+### Шаги
+
+1. Ввести текст
+2. Нажать Enter или Tab
+3. Редактор создает следующий узел
+4. Фокус автоматически переходит в новый текстовый узел
+
+### Системное поведение
+
+* commit current text
+* create new node
+* recalc layout
+* scroll/zoom only if necessary
+
+### Desired UX outcome
+
+Пользователь создает серию узлов без переключения между режимами.
+
+---
+
+## 6.7. Менять порядок веток
+
+### Триггер
+
+Drag sibling node vertically / reorder handle / keyboard reorder later
+
+### Шаги
+
+1. Захватить узел
+2. Перетащить в пределах sibling group
+3. Увидеть insertion preview
+4. Отпустить
+
+### Системное поведение
+
+* orderIndex обновляется
+* layout engine перестраивает ветку
+* visual animation smooth
+
+### Ошибки
+
+* нельзя вставить в invalid position
+* potential overlap preview
+
+### Desired UX outcome
+
+Порядок меняется предсказуемо и без визуальных скачков.
+
+---
+
+## 6.8. Перетаскивать ветку в другую часть дерева
+
+### Триггер
+
+Drag node onto another node / branch drop zone
+
+### Шаги
+
+1. Захватить node или целую sub-branch
+2. Перетащить к target node
+3. Появляется reparent preview
+4. Отпустить
+
+### Системное поведение
+
+* меняется parentId
+* весь subtree сохраняется
+* branch style partially inheritable
+* layout engine перестраивает affected zones
+
+### Хоткеи
+
+В MVP достаточно drag-and-drop, keyboard move позже.
+
+### Ошибки
+
+* нельзя переместить parent в своего descendant
+* нельзя сломать central node rules
+
+### Desired UX outcome
+
+Реструктуризация карты ощущается как естественная и быстрая операция.
+
+---
+
+## 6.9. Сворачивать/разворачивать ветки
+
+### Триггер
+
+* click collapse toggle
+* Space hotkey
+
+### Шаги
+
+1. Выделить узел
+2. Нажать collapse
+3. Потом раскрыть обратно
+
+### Системное поведение
+
+* descendants hidden
+* comment/link badges optional summarized
+* layout compacts the map
+
+### Desired UX outcome
+
+Большая карта остается управляемой.
+
+---
+
+## 6.10. Менять цвет ветки
+
+### Триггер
+
+Style toolbar → Shape/Border/Line popover
+
+### Шаги
+
+1. Выделить узел
+2. Открыть style popover
+3. Выбрать цвет ветки / line color
+4. Применить к node или branch
+
+### Системное поведение
+
+* preview on hover
+* apply on click
+* support inheritance toggle
+
+### Ошибки
+
+* conflict with theme preset
+* custom color invalid state
+
+### Desired UX outcome
+
+Смена цвета ощущается визуально мгновенно и помогает структурировать карту.
+
+---
+
+## 6.11. Менять shape узла
+
+### Триггер
+
+Contextual toolbar → Style
+
+### Шаги
+
+1. Выделить node
+2. Открыть shape panel
+3. Выбрать shape preset
+
+### Системное поведение
+
+* node geometry updates
+* layout recomputes dimensions
+* line anchor points adjust
+
+### Desired UX outcome
+
+Shape легко меняется без разрушения композиции ветки.
+
+---
+
+## 6.12. Менять border/line style
+
+### Триггер
+
+Style popover
+
+### Шаги
+
+1. Выделить node
+2. Открыть Border / Line
+3. Выбрать thickness, dash, opacity, radius-like options
+
+### Системное поведение
+
+* live preview
+* compatible defaults maintained
+
+### Desired UX outcome
+
+Пользователь визуально тонко настраивает карту без перегрузки настройками.
+
+---
+
+## 6.13. Добавлять комментарий
+
+### Триггер
+
+Comment icon in toolbar
+
+### Шаги
+
+1. Выделить node
+2. Нажать comment
+3. Открывается compact comment composer
+4. Ввести comment
+5. Save
+
+### Системное поведение
+
+* badge count appears
+* thread stored against node
+* optional mentions
+
+### Ошибки
+
+* offline save
+* mention resolution failure
+
+### Desired UX outcome
+
+Комментарий — быстрый контекст к теме, а не отдельный документный режим.
+
+---
+
+## 6.14. Добавлять ссылку
+
+### Триггер
+
+Link button
+
+### Шаги
+
+1. Выделить node
+2. Нажать link
+3. Вставить URL
+4. Нажать add
+
+### Системное поведение
+
+* validates protocol
+* shows link indicator on node
+* click opens link in new tab
+
+### Ошибки
+
+* invalid URL
+* blocked protocol
+
+### Desired UX outcome
+
+Ссылка добавляется в пару кликов и не ломает visual simplicity.
+
+---
+
+## 6.15. Добавлять изображение
+
+### Триггер
+
+Media button
+
+### Шаги
+
+1. Выделить node
+2. Открыть media panel
+3. Upload image
+4. Image appears as icon/thumb/embed depending on selected mode
+
+### Системное поведение
+
+* upload progress
+* image metadata stored
+* node layout adjusts
+
+### Ошибки
+
+* unsupported file
+* upload failed
+* oversize asset
+
+### Desired UX outcome
+
+Визуальные акценты добавляются быстро и остаются аккуратными.
+
+---
+
+## 6.16. Добавлять connection между узлами
+
+### Триггер
+
+Connection button
+
+### Шаги
+
+1. Выделить source node
+2. Нажать connection
+3. Кликнуть target node
+4. Connection drawn
+
+### Системное поведение
+
+* create relationship entity
+* route curve intelligently
+* avoid overlapping important content where possible
+
+### Ошибки
+
+* self-link
+* duplicate connection
+* hidden target in collapsed branch
+
+### Desired UX outcome
+
+Связи между отдаленными идеями добавляются легко, не нарушая tree-base.
+
+---
+
+## 6.17. Открывать настройки topic style
+
+### Триггер
+
+Style button
+
+### Шаги
+
+1. Выделить node
+2. Открыть style popover
+3. Switch between Shape / Border / Line
+4. Apply changes
+
+### Desired UX outcome
+
+Все основные стили — рядом, быстро, компактно.
+
+---
+
+## 6.18. Редактировать карту через floating contextual editor, а не тяжелую панель
+
+### Принцип
+
+В основном сценарии пользователь не взаимодействует с постоянным sidebar.
+
+### Desired UX outcome
+
+Редактор воспринимается как легкий, быстрый и “живущий рядом с картой”.
+
+---
+
+# 7. CONTEXTUAL TOOLBAR SPEC
+
+## 7.1. Когда появляется
+
+* После single-node selection
+* После завершения drag
+* После hover + click на node
+* Не показывается при empty selection
+
+## 7.2. Где позиционируется
+
+Предпочтительно:
+
+1. над узлом;
+2. справа от узла;
+3. слева от узла;
+4. ниже — как fallback.
+
+Алгоритм выбирает сторону с наименьшим риском перекрытия текста и соседних веток.
+
+## 7.3. Как не перекрывает контент
+
+* collision detection с node bbox и близкими siblings
+* смещение на 8–12 px от node bounds
+* если рядом нет места — toolbar anchor меняется
+
+## 7.4. Поведение на малом экране
+
+* tablet: enlarged compact bar
+* mobile: bottom sheet editor или anchored expandable strip
+
+## 7.5. Какие иконки в первой линии
+
+* Style
+* Text
+* Image
+* Link
+* Connection
+* Comment
+* More
+
+## 7.6. Какие действия открывают popover
+
+* Style
+* Text
+* Image
+* Link
+* Comments
+* More
+
+## 7.7. Какие действия должны быть one-click
+
+* Add child
+* Add sibling
+* Collapse/expand
+* Comment open
+* Maybe quick color preset later
+
+## 7.8. Что спрятано в More
+
+* duplicate node
+* delete
+* convert to floating
+* detach subtree
+* copy style
+* paste style
+* note
+* advanced properties
+
+## 7.9. Поведение при multi-select
+
+Toolbar сокращается:
+
+* apply color
+* apply text style
+* delete
+* move
+* more
+
+Нет link/comment/media для mixed selection.
+
+## 7.10. Поведение при text editing mode
+
+* toolbar partially collapses
+* text style shortcuts remain available
+* unrelated actions hide to reduce distraction
+
+---
+
+# 8. STYLE SYSTEM
+
+## 8.1. Общие принципы
+
+Style system должен быть:
+
+* визуально легким;
+* иерархически понятным;
+* быстрым в применении;
+* с наследованием;
+* с возможностью локального override.
+
+## 8.2. Состав style system
+
+* Цветовые темы
+* Цвет ветки
+* Цвет текста
+* Тема узла
+* Shape
+* Border
+* Line
+* Rounded rectangle
+* Line-only topic
+* Boundary display toggle
+* Topic as boundary
+* Preset topic appearance
+* Font presets
+* Hierarchy-based color inheritance
+* Different colors for first-level branches
+* Inheritance to child nodes
+* Manual override
+
+## 8.3. Иерархия цветов
+
+По умолчанию:
+
+* central topic — neutral / branded neutral
+* first-level branches — distinct palette colors
+* descendants inherit branch color with toned variants
+* manual override allowed on any node
+
+## 8.4. Shape presets
+
+* rounded rectangle
+* pill
+* soft rectangle
+* plain text / line-only
+* boundary-like
+* underline/topic-line emphasis
+
+## 8.5. Border options
+
+* none
+* thin
+* medium
+* dashed
+* subtle emphasis
+
+## 8.6. Line options
+
+* curved solid
+* thin curved
+* thicker emphasis
+* dashed relationship-like
+* smooth spline default
+
+## 8.7. Boundary toggle
+
+Node or group can display with boundary-like appearance. MVP: lightweight node boundary mode only.
+
+## 8.8. Manual override
+
+Любой node может получить локальный стиль, но UI должен показывать, что он отличается от inherited style.
+
+---
+
+## 8.9. Style popover: Shape / Border / Line
+
+### Вкладка Shape
+
+* shape presets
+* fill color
+* boundary toggle
+* preset appearance cards
+
+### Вкладка Border
+
+* on/off
+* weight
+* border color
+* dash style
+
+### Вкладка Line
+
+* line color
+* line thickness
+* line style
+* branch preview
+
+### Theme colors
+
+* curated palette
+* first row: semantic theme colors
+* second row: neutrals
+* custom color picker
+
+### Custom color behavior
+
+* recent colors memory
+* apply on click
+* hex input optional in advanced mode
+
+### Preview before apply
+
+Hover on option previews change on node/branch before commit.
+
+---
+
+# 9. TEXT STYLING PANEL
+
+## 9.1. Состав
+
+* preset typography variants
+* bold
+* italic
+* underline
+* font size up/down
+* text color palette
+* alignment if applicable
+* inline preview
+* hierarchy defaults
+
+## 9.2. Typography presets
+
+* Title
+* Section
+* Standard
+* Muted note
+* Emphasis
+
+## 9.3. Поведение
+
+* inline preview inside popover
+* live apply on selected node
+* revert available via undo
+
+## 9.4. Alignment
+
+Для mind map чаще всего:
+
+* center for central topic
+* left-aligned for branch nodes
+  В UI не нужно перегружать alignment options, но можно поддержать center/left.
+
+## 9.5. Keyboard shortcuts
+
+* Cmd/Ctrl+B
+* Cmd/Ctrl+I
+* Cmd/Ctrl+U
+* font size later via advanced shortcuts
+* Enter/Tab continue editing flows
+
+---
+
+# 10. MEDIA / LINK / COMMENT PANELS
+
+## 10A. Image / media
+
+### Состав
+
+* Attach image
+* Embed image
+* Tabs: image / icon / emoji / media
+
+### Поведение
+
+* upload from device
+* choose display mode:
+
+  * icon
+  * thumbnail
+  * inline image
+
+### Узловое отображение
+
+* small icon badge for icon mode
+* compact thumbnail near text for image mode
+* no oversized visual clutter by default
+
+---
+
+## 10B. Link
+
+### Состав
+
+* URL input
+* validation state
+* Add button
+* remove/edit existing link
+
+### Validation
+
+* accepts http/https/mailto
+* rejects unsafe schemes
+
+### Display on node
+
+* small link badge/icon
+* hover tooltip with URL title optional
+* click opens in new tab
+
+---
+
+## 10C. Comments
+
+### Состав
+
+* add comment inline
+* mention people
+* thread list
+* comment count badge
+
+### Поведение
+
+* compact composer opens near node
+* thread can expand in popover
+* badge visible on node after save
+
+### Mention behavior
+
+* autocomplete by workspace member
+* notification phase 2 or simple alert in MVP
+
+---
+
+# 11. MAP STRUCTURE MODES
+
+## 11.1. Classic radial mind map
+
+### Геометрия
+
+Central topic in center, first-level branches spread left/right radially.
+
+### Поведение
+
+* balanced distribution
+* each primary branch gets direction
+
+### Где лучше
+
+Brainstorming, idea mapping, personal planning.
+
+---
+
+## 11.2. Right-sided tree
+
+### Геометрия
+
+Все ветки растут вправо от central/root node.
+
+### Где лучше
+
+Linear reading, presentations, documentation-like flow.
+
+---
+
+## 11.3. Top-down hierarchy / org-like
+
+### Геометрия
+
+Root top, children below in hierarchy tree.
+
+### Где лучше
+
+Org charts, decomposition, process structures.
+
+---
+
+## 11.4. Left-to-right tree
+
+### Геометрия
+
+Single directional horizontal tree.
+
+### Где лучше
+
+User flows, product logic, causal sequences.
+
+---
+
+## 11.5. Mixed branch directions
+
+### Геометрия
+
+Некоторые primary branches left, некоторые right, optionally custom.
+
+### Где лучше
+
+Complex ideation maps where grouping by side matters.
+
+---
+
+## 11.6. Logical vertical list-tree
+
+### Геометрия
+
+Более компактная, почти outline-like вертикальная структура.
+
+### Где лучше
+
+Dense maps, text-heavy planning, structured outlines.
+
+## 11.7. Общее требование к layout modes
+
+При переключении режима редактор:
+
+* сохраняет readable spacing;
+* не ломает связи;
+* анимированно перестраивает карту;
+* минимизирует визуальный shock.
+
+---
+
+# 12. VISUAL DETAILS THAT MUST MATCH REFERENCE FEELING
+
+## Pixel-feel requirements
+
+* Очень светло-серый фон canvas
+* Тонкие яркие цветные ветки
+* Тёмно-серый читаемый текст
+* Мягкие тени у popover и floating panels
+* Rounded corners
+* Минималистичные иконки
+* Тонкие outline у selected node
+* Компактные контролы
+* Большие пустые поля вокруг карты
+* Визуальная легкость
+* Map-first layout
+* Отсутствие тяжелых постоянных сайдбаров в основном сценарии редактирования
+
+## Дополнительно
+
+* Не использовать тяжелые градиенты
+* Не делать яркий брендовый фон
+* Не перегружать интерфейс labels/badges
+* Не делать ветки толстыми и агрессивными
+* Не превращать редактор в whiteboard
+
+---
+
+# 13. INFORMATION ARCHITECTURE
+
+## 13.1. Workspace
+
+* user workspace
+* personal/team ownership
+* map list
+
+## 13.2. Map list
+
+* recent maps
+* create new map
+* sorting/filtering minimal
+
+## 13.3. Editor screen
+
+Главный экран продукта. Это ядро всей системы.
+
+## 13.4. Share modal
+
+* invite people
+* link access
+* role: viewer/editor
+
+## 13.5. Export modal
+
+* PNG
+* PDF
+* later: text/outline export
+
+## 13.6. Settings modal
+
+* map settings
+* appearance defaults
+* shortcuts help
+
+## 13.7. Trash / archive
+
+Нужен как базовая сущность workspace management, но не как фокус MVP.
+
+---
+
+# 14. MVP SCOPE
+
+В MVP включить только то, что критично для **ручного создания карт**:
+
+* Регистрация / вход
+* Создание карты
+* Central topic
+* Child / sibling topics
+* Drag-and-drop restructuring
+* Basic layouts
+* Contextual toolbar
+* Style popovers
+* Comments
+* Links
+* Image attach
+* Zoom / pan / fit
+* Save / autosave
+* Share
+* Export PNG/PDF
+* Basic mobile viewing
+
+## Что не включать в MVP
+
+* AI generation
+* AI restructuring
+* presentation mode
+* marketplace
+* advanced permissions matrix
+* complex whiteboard features
+* enterprise admin layer
+
+---
+
+# 15. PHASE 2 / LATER
+
+Позже можно добавить:
+
+* AI generation
+* AI restructuring
+* Presentation mode
+* Outline mode
+* Tasks / integrations
+* Advanced collaboration
+* Version history
+* Templates marketplace
+* Smart formatting
+* Rich notes
+* Advanced connections/boundaries
+
+---
+
+# 16. FRONTEND TECH ARCHITECTURE
+
+## 16.1. Recommended stack
+
+* **React**
+* **Next.js**
+* TypeScript
+* Tailwind or CSS modules for app shell
+* Zustand / Redux Toolkit for editor state
+* React Aria / Floating UI for popovers
+* Yjs or Liveblocks later for realtime collaboration
+* tRPC or REST/GraphQL depending backend style
+
+## 16.2. SVG vs Canvas vs hybrid
+
+### Рекомендация: **hybrid with SVG-first editor surface**
+
+Лучший вариант для такого продукта — **SVG + HTML overlay + selective canvas optimization later**.
+
+### Почему не pure Canvas
+
+Canvas хорош для massive rendering, но:
+
+* сложнее делать inline editing;
+* сложнее точный selection/accessibility;
+* сложнее DOM-based popover anchoring;
+* сложнее maintainable UI around node interactions.
+
+### Почему SVG лучше для MVP и reference feel
+
+* ветки удобно рисовать path-кривыми;
+* node selection естественно;
+* hit testing проще;
+* drag handles проще;
+* transitions и styling удобнее;
+* легче сделать crisp visual quality.
+
+### Hybrid стратегия
+
+* SVG for branches + node shells
+* HTML overlay for inline editable text, toolbars, badges, popovers
+* optional canvas layer later for huge-map performance
+
+## 16.3. Как отрисовывать ветки
+
+* cubic bezier or smooth spline paths
+* direction-aware anchor points
+* per-branch color inheritance
+* hit area wider than visible stroke
+
+## 16.4. Как делать topic selection
+
+* SVG group per node
+* invisible hit area for easier clicking
+* selected outline in separate layer
+
+## 16.5. Как делать drag handles
+
+* node body itself draggable
+* optional subtle drag hotspot
+* relationship creation handle may appear on hover
+
+## 16.6. Как делать inline editing
+
+* HTML contenteditable/input overlay positioned over selected node bbox
+* sync text metrics back into layout engine
+* autosize height/width with debounce
+
+## 16.7. State management
+
+Разделить состояния на:
+
+* persistent map data
+* transient UI state
+* viewport state
+* history state
+* collaboration state later
+
+## 16.8. Keyboard shortcut system
+
+Использовать централизованный shortcut manager:
+
+* aware of mode
+* ignores inputs when text editing
+* supports remapping later
+
+## 16.9. Popover system
+
+* Floating UI
+* collision detection
+* flip/shift middleware
+* viewport-safe positioning
+
+## 16.10. Autosave model
+
+* local optimistic updates immediately
+* debounce server save 500–1200 ms
+* hard save on blur / major action / interval
+* offline cache in local storage / IndexedDB
+
+## 16.11. Optimistic updates
+
+Все editor actions должны ощущаться мгновенными:
+
+* node create
+* text edit
+* drag
+* style apply
+* comment badge increments
+
+## 16.12. Performance strategy for large maps
+
+* memoized node rendering
+* subtree re-layout only where possible
+* viewport culling for heavy overlays
+* requestAnimationFrame for drag
+* coarse/fine render modes during pan/zoom
+* throttled path recomputation
+
+---
+
+# 17. DATA MODEL
+
+## User
+
+* id
+* name
+* email
+* avatarUrl
+* workspaceId
+* createdAt
+
+## Map
+
+* id
+* ownerId
+* title
+* description
+* rootNodeId
+* layoutMode
+* themeId
+* createdAt
+* updatedAt
+* archivedAt?
+
+## Node
+
+См. модель выше.
+
+## BranchStyle
+
+* id
+* mapId
+* nodeId or branchRootId
+* lineColor
+* lineWidth
+* lineStyle
+* inherited
+* updatedAt
+
+## Comment
+
+* id
+* mapId
+* nodeId
+* authorId
+* text
+* mentions[]
+* createdAt
+* updatedAt
+
+## Attachment
+
+* id
+* mapId
+* nodeId
+* type
+* url
+* metadata
+* createdAt
+
+## Link
+
+* id
+* nodeId
+* url
+* title?
+* createdAt
+
+## Permission
+
+* id
+* mapId
+* subjectType
+* subjectId
+* role: viewer | editor
+* createdAt
+
+## LayoutSettings
+
+* mapId
+* layoutMode
+* autoLayoutEnabled
+* branchSpacing
+* levelSpacing
+* mixedDirectionsConfig
+
+## ViewportState
+
+* mapId
+* zoom
+* panX
+* panY
+* lastCenteredAt
+* lastFitAt
+
+---
+
+# 18. BACKEND / API
+
+## Минимальный backend
+
+* auth
+* maps CRUD
+* nodes CRUD
+* reorder / move node
+* comments
+* attachments
+* share permissions
+* export jobs
+* autosave endpoints or realtime sync
+
+## Пример API surface
+
+### Auth
+
+* POST /auth/signup
+* POST /auth/login
+* POST /auth/logout
+* GET /auth/session
+
+### Maps
+
+* GET /maps
+* POST /maps
+* GET /maps/:id
+* PATCH /maps/:id
+* DELETE /maps/:id
+
+### Nodes
+
+* POST /maps/:id/nodes
+* PATCH /nodes/:id
+* DELETE /nodes/:id
+* POST /nodes/:id/move
+* POST /nodes/:id/reorder
+* POST /nodes/:id/toggle-expand
+
+### Comments
+
+* GET /nodes/:id/comments
+* POST /nodes/:id/comments
+* PATCH /comments/:id
+* DELETE /comments/:id
+
+### Attachments
+
+* POST /attachments/upload
+* POST /nodes/:id/attachments
+* DELETE /attachments/:id
+
+### Sharing
+
+* GET /maps/:id/permissions
+* POST /maps/:id/share
+* PATCH /permissions/:id
+* DELETE /permissions/:id
+
+### Export
+
+* POST /maps/:id/export/png
+* POST /maps/:id/export/pdf
+* GET /export-jobs/:id
+
+### Autosave / sync
+
+* PATCH /maps/:id/state
+  или
+* websocket/yjs provider later
+
+---
+
+# 19. NON-FUNCTIONAL REQUIREMENTS
+
+* Быстрый отклик интерфейса
+* Плавный drag
+* Быстрый zoom
+* Autosave
+* Crash recovery
+* Map load under 2–3 seconds for normal maps
+* Usability for large maps
+* Keyboard-first editing speed
+* Clean responsive behavior
+* Stable layout recalculation
+* Undo/redo reliability
+* No data loss on refresh or temporary disconnect
+
+---
+
+# 20. QA CHECKLIST
+
+## Core editing
+
+* create topic
+* edit topic text
+* delete topic
+* add child
+* add sibling
+* nested creation
+
+## Structure
+
+* reorder topics
+* move branches
+* invalid move prevention
+* collapse/expand stability
+
+## Styling
+
+* style application
+* inherited colors
+* manual override
+* shape switching
+* line/border changes
+
+## UI behavior
+
+* toolbar visibility
+* toolbar positioning
+* popover positioning
+* popover close behavior
+* keyboard shortcuts
+* focus management
+
+## Content enrichments
+
+* comments
+* links
+* image attach
+* comment badge count
+* link icon display
+
+## Canvas
+
+* pan
+* zoom
+* fit
+* center
+* search jump
+* smooth transitions
+
+## Layout
+
+* radial stability
+* top-down stability
+* mixed mode behavior
+* no overlap in common cases
+
+## Export
+
+* PNG correctness
+* PDF correctness
+* visibility of branches/colors/text
+* cropping issues
+
+## Mobile
+
+* basic mobile behavior
+* viewport controls
+* read mode
+* light edit mode
+
+## Performance
+
+* medium map performance
+* large map performance
+* drag FPS
+* autosave under load
+
+---
+
+# 21. FINAL DELIVERABLE
+
+## A. Executive summary
+
+Нужно создать **editor-first web mind mapping сервис**, в котором основа опыта — это **ручное построение карты на чистом infinite canvas**. Продукт должен ощущаться легким, быстрым и визуально близким к reference-class editor: карта в центре, компактные плавающие контролы, contextual toolbar у выбранного узла, мягкие popovers для стилей, links, comments и media. MVP должен быть сфокусирован строго на manual mind mapping, без AI-first логики.
+
+## B. Exact MVP scope
+
+* Auth
+* Blank map creation
+* Central topic
+* Child/sibling creation
+* Inline text editing
+* Drag-and-drop restructuring
+* Collapse/expand
+* 3–5 layout modes
+* Contextual toolbar
+* Shape/Border/Line/Text popovers
+* Links
+* Comments
+* Image attach
+* Zoom/pan/fit/center
+* Autosave
+* Share link with viewer/editor
+* Export PNG/PDF
+* Basic mobile viewing
+
+## C. Recommended stack
+
+* Next.js + React + TypeScript
+* SVG-first rendering with HTML overlays
+* Zustand or Redux Toolkit
+* Floating UI for anchored popovers
+* d3-shape / custom bezier utilities for branch paths
+* custom tree layout engine or ELK/d3-hierarchy based hybrid
+* PostgreSQL + object storage
+* WebSocket/Yjs later for collaboration
+
+## D. 10 ключевых UI/UX решений, без которых editor не будет ощущаться как reference-class продукт
+
+1. Почти весь экран должен принадлежать карте.
+2. Редактирование — рядом с узлом, а не в тяжелом sidebar.
+3. Добавление child/sibling по Enter/Tab должно быть молниеносным.
+4. Selected node должен иметь тонкий, аккуратный outline.
+5. Branches должны быть тонкими, плавными и визуально чистыми.
+6. Layout engine должен сохранять читаемость и spacing автоматически.
+7. Style popovers должны быть компактными и anchored к действию.
+8. Fit, center, zoom и pan должны ощущаться плавно и естественно.
+9. У first-level branches должны быть distinct colors с наследованием вниз.
+10. В основном сценарии нельзя перегружать редактор панелями, бейджами и enterprise-элементами.
