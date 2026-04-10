@@ -19,6 +19,17 @@ type GoogleTokenClientConfig = {
   callback: (response: GoogleTokenResponse) => void;
 };
 
+export class GoogleAuthorizationError extends Error {
+  constructor(message: string, public code?: string) {
+    super(message);
+    this.name = 'GoogleAuthorizationError';
+  }
+}
+
+export function isGoogleAccessDeniedError(error: unknown): boolean {
+  return error instanceof GoogleAuthorizationError && error.code === 'access_denied';
+}
+
 declare global {
   interface Window {
     google?: {
@@ -93,7 +104,7 @@ export async function requestGoogleDocsAccessToken(clientId: string): Promise<st
       scope: GOOGLE_DOCS_SCOPE,
       callback: (response) => {
         if (response.error) {
-          reject(new Error(response.error_description || response.error));
+          reject(new GoogleAuthorizationError(response.error_description || response.error, response.error));
           return;
         }
 

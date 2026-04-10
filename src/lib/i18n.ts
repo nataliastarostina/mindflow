@@ -196,6 +196,7 @@ type Messages = {
     clearTabs: string;
     structureOnlyHint: string;
     googleClientMissing: string;
+    googleAccessBlocked: string;
     googleExportFailed: string;
     openGoogleDocument: string;
     googleStructureTab: string;
@@ -432,6 +433,7 @@ export const messages: Record<Language, Messages> = {
       clearTabs: 'Clear',
       structureOnlyHint: 'No nodes selected: the Google document will contain only the structure tab.',
       googleClientMissing: 'Google export is not configured. Add NEXT_PUBLIC_GOOGLE_CLIENT_ID and try again.',
+      googleAccessBlocked: 'Google blocked access because the OAuth app is still in testing. Add this Google account to OAuth consent screen test users or publish the app in Google Cloud, then try again.',
       googleExportFailed: 'Google Docs export failed. Please check Google access and try again.',
       openGoogleDocument: 'Open Google document',
       googleStructureTab: 'Structure',
@@ -671,6 +673,7 @@ export const messages: Record<Language, Messages> = {
       clearTabs: 'Снять все',
       structureOnlyHint: 'Ячейки не выбраны: в Google-документе будет только вкладка со структурой.',
       googleClientMissing: 'Экспорт в Google не настроен. Добавьте NEXT_PUBLIC_GOOGLE_CLIENT_ID и попробуйте снова.',
+      googleAccessBlocked: 'Google заблокировал доступ, потому что OAuth-приложение еще в тестовом режиме. Добавьте этот Google-аккаунт в Test users на экране согласия OAuth или опубликуйте приложение в Google Cloud, затем попробуйте снова.',
       googleExportFailed: 'Экспорт в Google Docs не удался. Проверьте доступ Google и попробуйте снова.',
       openGoogleDocument: 'Открыть Google-документ',
       googleStructureTab: 'Структура',

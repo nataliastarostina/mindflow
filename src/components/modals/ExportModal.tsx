@@ -11,7 +11,7 @@ import { X, FileImage, AlignLeft, Image as ImageIcon, FileText } from 'lucide-re
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 import { useI18n } from '@/stores/useLanguageStore';
-import { requestGoogleDocsAccessToken } from '@/lib/googleIdentity';
+import { isGoogleAccessDeniedError, requestGoogleDocsAccessToken } from '@/lib/googleIdentity';
 import { exportMindMapToGoogleDocs } from '@/lib/googleDocsExport';
 import type { MindMapNode } from '@/lib/types';
 
@@ -242,7 +242,12 @@ export default function ExportModal() {
       setActiveModal(null);
     } catch (err) {
       console.error('Export failed:', err);
-      alert(format === 'google-docs' ? t.exportModal.googleExportFailed : t.exportModal.exportFailed);
+      const message = format === 'google-docs'
+        ? isGoogleAccessDeniedError(err)
+          ? t.exportModal.googleAccessBlocked
+          : t.exportModal.googleExportFailed
+        : t.exportModal.exportFailed;
+      alert(message);
     } finally {
       setExporting(false);
     }
