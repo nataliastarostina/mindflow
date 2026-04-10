@@ -188,6 +188,20 @@ type Messages = {
     pdfDescription: string;
     markdownTitle: string;
     markdownDescription: string;
+    googleDocsTitle: string;
+    googleDocsDescription: string;
+    googleTabsTitle: string;
+    googleTabsDescription: string;
+    selectAllTabs: string;
+    clearTabs: string;
+    structureOnlyHint: string;
+    googleClientMissing: string;
+    googleExportFailed: string;
+    openGoogleDocument: string;
+    googleStructureTab: string;
+    googleHierarchy: string;
+    googleDocuments: string;
+    googleComments: string;
     exporting: string;
     exportFailed: string;
     markdownFallbackTitle: string;
@@ -410,6 +424,20 @@ export const messages: Record<Language, Messages> = {
       pdfDescription: 'Document-friendly export',
       markdownTitle: 'Text & Content (Markdown)',
       markdownDescription: 'Preserves comments, links, and structure',
+      googleDocsTitle: 'Google Docs with tabs',
+      googleDocsDescription: 'Creates a Google document with one tab per selected node',
+      googleTabsTitle: 'Google Docs tabs',
+      googleTabsDescription: 'Selected nodes become separate Google Docs tabs. Unselected children stay inside the closest selected parent tab.',
+      selectAllTabs: 'Select all',
+      clearTabs: 'Clear',
+      structureOnlyHint: 'No nodes selected: the Google document will contain only the structure tab.',
+      googleClientMissing: 'Google export is not configured. Add NEXT_PUBLIC_GOOGLE_CLIENT_ID and try again.',
+      googleExportFailed: 'Google Docs export failed. Please check Google access and try again.',
+      openGoogleDocument: 'Open Google document',
+      googleStructureTab: 'Structure',
+      googleHierarchy: 'Hierarchy',
+      googleDocuments: 'Documents',
+      googleComments: 'Comments',
       exporting: 'Exporting...',
       exportFailed: 'Export failed. Please try again.',
       markdownFallbackTitle: 'Mind Map',
@@ -635,6 +663,20 @@ export const messages: Record<Language, Messages> = {
       pdfDescription: 'Удобно для документов и печати',
       markdownTitle: 'Текст и контент (Markdown)',
       markdownDescription: 'Сохраняет комментарии, ссылки и структуру',
+      googleDocsTitle: 'Google Docs с вкладками',
+      googleDocsDescription: 'Создает Google-документ с отдельной вкладкой для каждой выбранной ячейки',
+      googleTabsTitle: 'Вкладки Google Docs',
+      googleTabsDescription: 'Выбранные ячейки станут отдельными вкладками. Невыбранные дочерние ячейки останутся внутри ближайшей выбранной родительской вкладки.',
+      selectAllTabs: 'Выбрать все',
+      clearTabs: 'Снять все',
+      structureOnlyHint: 'Ячейки не выбраны: в Google-документе будет только вкладка со структурой.',
+      googleClientMissing: 'Экспорт в Google не настроен. Добавьте NEXT_PUBLIC_GOOGLE_CLIENT_ID и попробуйте снова.',
+      googleExportFailed: 'Экспорт в Google Docs не удался. Проверьте доступ Google и попробуйте снова.',
+      openGoogleDocument: 'Открыть Google-документ',
+      googleStructureTab: 'Структура',
+      googleHierarchy: 'Иерархия',
+      googleDocuments: 'Документы',
+      googleComments: 'Комментарии',
       exporting: 'Экспортируем...',
       exportFailed: 'Экспорт не удался. Пожалуйста, попробуйте еще раз.',
       markdownFallbackTitle: 'Ментальная карта',

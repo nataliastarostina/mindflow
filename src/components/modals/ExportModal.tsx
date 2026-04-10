@@ -3,28 +3,128 @@
 // ExportModal — High-quality PNG/PDF/MD export of full mind map
 // ============================================================
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useUIStore } from '@/stores/useUIStore';
 import { useMapStore } from '@/stores/useMapStore';
 import { useReactFlow, getNodesBounds, getViewportForBounds } from '@xyflow/react';
-import { X, FileImage, AlignLeft, Image as ImageIcon } from 'lucide-react';
+import { X, FileImage, AlignLeft, Image as ImageIcon, FileText } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 import { useI18n } from '@/stores/useLanguageStore';
+import { requestGoogleDocsAccessToken } from '@/lib/googleIdentity';
+import { exportMindMapToGoogleDocs } from '@/lib/googleDocsExport';
+import type { MindMapNode } from '@/lib/types';
+
+type ExportFormat = 'png' | 'pdf' | 'markdown' | 'google-docs';
+
+function compareNodes(a: MindMapNode, b: MindMapNode): number {
+  if (a.type === 'central' && b.type !== 'central') return -1;
+  if (b.type === 'central' && a.type !== 'central') return 1;
+  return a.orderIndex - b.orderIndex || a.text.localeCompare(b.text);
+}
+
+function nodeHasGoogleDocsContent(node: MindMapNode, commentCount: number): boolean {
+  return Boolean(
+    node.link ||
+      commentCount > 0 ||
+      (node.textDocuments || []).some((document) => document.title.trim() || document.content.trim())
+  );
+}
 
 export default function ExportModal() {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const { activeModal, setActiveModal } = useUIStore();
   const { mapData, getChildren, getRootNode } = useMapStore();
   const [exporting, setExporting] = useState(false);
   const [exportScope, setExportScope] = useState<'map_only' | 'full_data'>('map_only');
+  const [googleSelectedNodeIds, setGoogleSelectedNodeIds] = useState<string[]>([]);
+  const [googleDocumentUrl, setGoogleDocumentUrl] = useState<string | null>(null);
   const { getNodes } = useReactFlow();
+
+  const childrenByParent = useMemo(() => {
+    if (!mapData) return {};
+
+    const nextChildrenByParent: Record<string, MindMapNode[]> = {};
+    Object.values(mapData.nodes).forEach((node) => {
+      const parentKey = node.parentId || '__root__';
+      nextChildrenByParent[parentKey] ||= [];
+      nextChildrenByParent[parentKey].push(node);
+    });
+    Object.values(nextChildrenByParent).forEach((children) => children.sort(compareNodes));
+    return nextChildrenByParent;
+  }, [mapData]);
+
+  const googleRootNodes = useMemo(() => {
+    if (!mapData) return [];
+
+    const roots = childrenByParent.__root__ || [];
+    const rootNode = mapData.nodes[mapData.rootNodeId];
+    if (!rootNode) return roots;
+    return [rootNode, ...roots.filter((node) => node.id !== rootNode.id)];
+  }, [childrenByParent, mapData]);
+
+  const allMapNodes = useMemo(() => {
+    const result: MindMapNode[] = [];
+    const visit = (node: MindMapNode) => {
+      result.push(node);
+      (childrenByParent[node.id] || []).forEach(visit);
+    };
+    googleRootNodes.forEach(visit);
+    return result;
+  }, [childrenByParent, googleRootNodes]);
+
+  const googleSelectedNodeIdSet = useMemo(
+    () => new Set(googleSelectedNodeIds),
+    [googleSelectedNodeIds]
+  );
+
+  useEffect(() => {
+    if (activeModal !== 'export' || !mapData) return;
+
+    setGoogleDocumentUrl(null);
+    setGoogleSelectedNodeIds(
+      Object.values(mapData.nodes)
+        .filter((node) => nodeHasGoogleDocsContent(node, mapData.comments[node.id]?.length || 0))
+        .map((node) => node.id)
+    );
+  }, [activeModal, mapData]);
 
   if (activeModal !== 'export') return null;
 
-  const handleExport = async (format: 'png' | 'pdf' | 'markdown') => {
+  const handleExport = async (format: ExportFormat) => {
     setExporting(true);
+    setGoogleDocumentUrl(null);
     try {
+      if (format === 'google-docs') {
+        if (!mapData) throw new Error('No map data');
+        const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+        if (!googleClientId) {
+          alert(t.exportModal.googleClientMissing);
+          return;
+        }
+
+        const accessToken = await requestGoogleDocsAccessToken(googleClientId);
+        const result = await exportMindMapToGoogleDocs({
+          mapData,
+          selectedNodeIds: googleSelectedNodeIds,
+          locale: language,
+          accessToken,
+          labels: {
+            structureTabTitle: t.exportModal.googleStructureTab,
+            hierarchyTitle: t.exportModal.googleHierarchy,
+            documentsTitle: t.exportModal.googleDocuments,
+            commentsTitle: t.exportModal.googleComments,
+            linkTitle: t.exportModal.markdownLink,
+            untitledNode: t.common.untitledNode,
+            untitledDocument: t.common.untitledDocument,
+          },
+        });
+
+        setGoogleDocumentUrl(result.documentUrl);
+        window.open(result.documentUrl, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
       if (format === 'markdown') {
         const root = getRootNode();
         if (!root || !mapData) throw new Error('No root node');
@@ -142,10 +242,65 @@ export default function ExportModal() {
       setActiveModal(null);
     } catch (err) {
       console.error('Export failed:', err);
-      alert(t.exportModal.exportFailed);
+      alert(format === 'google-docs' ? t.exportModal.googleExportFailed : t.exportModal.exportFailed);
     } finally {
       setExporting(false);
     }
+  };
+
+  const toggleGoogleNode = (nodeId: string) => {
+    setGoogleSelectedNodeIds((current) => (
+      current.includes(nodeId)
+        ? current.filter((id) => id !== nodeId)
+        : [...current, nodeId]
+    ));
+  };
+
+  const renderGoogleNodeOption = (node: MindMapNode, depth: number): React.ReactNode => {
+    const documentsCount = (node.textDocuments || []).filter((document) => (
+      document.title.trim() || document.content.trim()
+    )).length;
+    const commentsCount = mapData?.comments[node.id]?.length || 0;
+    const hasLink = Boolean(node.link);
+    const meta = [
+      documentsCount > 0 ? `${documentsCount} ${t.exportModal.googleDocuments}` : null,
+      commentsCount > 0 ? `${commentsCount} ${t.exportModal.googleComments}` : null,
+      hasLink ? t.exportModal.markdownLink : null,
+    ].filter(Boolean).join(' · ');
+
+    return (
+      <React.Fragment key={node.id}>
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '8px',
+            padding: '6px 8px',
+            paddingLeft: `${8 + depth * 18}px`,
+            borderRadius: '8px',
+            cursor: 'pointer',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={googleSelectedNodeIdSet.has(node.id)}
+            onChange={() => toggleGoogleNode(node.id)}
+            style={{ marginTop: '3px' }}
+          />
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#1E293B', wordBreak: 'break-word' }}>
+              {node.text || t.common.untitledNode}
+            </span>
+            {meta && (
+              <span style={{ display: 'block', marginTop: '2px', fontSize: '11px', color: '#64748B' }}>
+                {meta}
+              </span>
+            )}
+          </span>
+        </label>
+        {(childrenByParent[node.id] || []).map((child) => renderGoogleNodeOption(child, depth + 1))}
+      </React.Fragment>
+    );
   };
 
   return (
@@ -167,7 +322,9 @@ export default function ExportModal() {
           backgroundColor: '#FFFFFF',
           borderRadius: '16px',
           padding: '24px',
-          width: '420px',
+          width: 'min(560px, calc(100vw - 32px))',
+          maxHeight: 'calc(100vh - 48px)',
+          overflowY: 'auto',
           boxShadow: '0 16px 48px rgba(0,0,0,0.16)',
         }}
         onClick={(e) => e.stopPropagation()}
@@ -221,6 +378,47 @@ export default function ExportModal() {
             >
               {t.exportModal.fullPage}
             </button>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', marginBottom: '8px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', display: 'block' }}>
+              {t.exportModal.googleTabsTitle}
+            </label>
+            <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={() => setGoogleSelectedNodeIds(allMapNodes.map((node) => node.id))}
+                style={{ border: 'none', background: 'none', padding: 0, fontSize: '12px', fontWeight: 600, color: '#2563EB', cursor: 'pointer' }}
+              >
+                {t.exportModal.selectAllTabs}
+              </button>
+              <button
+                type="button"
+                onClick={() => setGoogleSelectedNodeIds([])}
+                style={{ border: 'none', background: 'none', padding: 0, fontSize: '12px', fontWeight: 600, color: '#64748B', cursor: 'pointer' }}
+              >
+                {t.exportModal.clearTabs}
+              </button>
+            </div>
+          </div>
+          <div style={{ fontSize: '12px', color: '#64748B', lineHeight: 1.5, marginBottom: '10px' }}>
+            {googleSelectedNodeIds.length === 0
+              ? t.exportModal.structureOnlyHint
+              : t.exportModal.googleTabsDescription}
+          </div>
+          <div
+            style={{
+              maxHeight: '180px',
+              overflowY: 'auto',
+              border: '1px solid #E2E8F0',
+              borderRadius: '8px',
+              padding: '6px',
+              backgroundColor: '#FFFFFF',
+            }}
+          >
+            {googleRootNodes.map((node) => renderGoogleNodeOption(node, 0))}
           </div>
         </div>
 
@@ -287,7 +485,50 @@ export default function ExportModal() {
               <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>{t.exportModal.markdownDescription}</div>
             </div>
           </button>
+
+          <button
+            onClick={() => handleExport('google-docs')}
+            disabled={exporting}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '14px', padding: '16px',
+              borderRadius: '12px', border: '1px solid #BBF7D0', backgroundColor: '#F0FDF4',
+              cursor: exporting ? 'wait' : 'pointer', transition: 'all 0.15s', textAlign: 'left',
+            }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = '#DCFCE7')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = '#F0FDF4')}
+          >
+            <div style={{ width: '44px', height: '44px', borderRadius: '10px', backgroundColor: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <FileText size={22} style={{ color: '#16A34A' }} />
+            </div>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: '#14532D' }}>{t.exportModal.googleDocsTitle}</div>
+              <div style={{ fontSize: '12px', color: '#166534', marginTop: '2px' }}>{t.exportModal.googleDocsDescription}</div>
+            </div>
+          </button>
         </div>
+
+        {googleDocumentUrl && (
+          <a
+            href={googleDocumentUrl}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginTop: '14px',
+              height: '40px',
+              borderRadius: '8px',
+              backgroundColor: '#14532D',
+              color: '#FFFFFF',
+              fontSize: '13px',
+              fontWeight: 700,
+              textDecoration: 'none',
+            }}
+          >
+            {t.exportModal.openGoogleDocument}
+          </a>
+        )}
 
         {exporting && (
           <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '13px', color: '#64748B' }}>
