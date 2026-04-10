@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { getAllMaps, createMap, deleteMap, duplicateMap, createDemoMap } from '@/lib/api';
+import { getEditorHref } from '@/lib/routes';
 import type { MapData } from '@/lib/types';
 import { Plus, Trash2, Copy, MoreHorizontal, Clock, Map } from 'lucide-react';
 import LanguageSwitcher from '@/components/common/LanguageSwitcher';
@@ -31,16 +32,16 @@ export default function Dashboard() {
 
   const handleCreate = () => {
     const map = createMap(undefined, language);
-    router.push(`/editor/${map.id}`);
+    router.push(getEditorHref(map.id));
   };
 
   const handleCreateDemo = () => {
     const map = createDemoMap(language);
-    router.push(`/editor/${map.id}`);
+    router.push(getEditorHref(map.id));
   };
 
   const handleOpen = (id: string) => {
-    router.push(`/editor/${id}`);
+    router.push(getEditorHref(id));
   };
 
   const handleDelete = (id: string) => {

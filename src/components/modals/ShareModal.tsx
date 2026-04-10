@@ -6,8 +6,11 @@
 import React, { useState } from 'react';
 import { useUIStore } from '@/stores/useUIStore';
 import { useMapStore } from '@/stores/useMapStore';
+import { getEditorHref } from '@/lib/routes';
 import { X, Copy, Check, Link2 } from 'lucide-react';
 import { useI18n } from '@/stores/useLanguageStore';
+
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
 
 export default function ShareModal() {
   const { t } = useI18n();
@@ -17,9 +20,10 @@ export default function ShareModal() {
 
   if (activeModal !== 'share') return null;
 
-  const shareUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/editor/${mapData?.id || ''}`
-    : '';
+  const shareUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}${basePath}${getEditorHref(mapData?.id || '')}`
+      : '';
 
   const handleCopy = async () => {
     try {

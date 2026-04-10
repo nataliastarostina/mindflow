@@ -5,6 +5,7 @@
    ============================================================ */
 
 :root {
+  --font-sans: "Segoe UI", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
   --color-canvas: #FAFBFC;
   --color-surface: #FFFFFF;
   --color-border: #E2E8F0;
@@ -40,7 +41,7 @@
 body {
   margin: 0;
   padding: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: var(--color-text-primary);
@@ -165,7 +166,7 @@ body {
 
 /* Notes-like rich text editor */
 .note-editor-content {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
 }
 
 .note-editor-content:empty::before {

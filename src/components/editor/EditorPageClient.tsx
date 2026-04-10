@@ -1,21 +1,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import EditorShell from '@/components/editor/EditorShell';
 import { getMap } from '@/lib/api';
 import type { MapData } from '@/lib/types';
 import { useI18n } from '@/stores/useLanguageStore';
 
-export default function EditorPage() {
-  const params = useParams();
+export default function EditorPageClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t } = useI18n();
   const [map, setMap] = useState<MapData | null>(null);
   const [loading, setLoading] = useState(true);
+  const mapId = searchParams.get('mapId');
 
   useEffect(() => {
-    const mapId = params.mapId as string;
     if (!mapId) {
       router.push('/');
       return;
@@ -33,7 +33,7 @@ export default function EditorPage() {
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [params.mapId, router]);
+  }, [mapId, router]);
 
   if (loading || !map) {
     return (
@@ -45,7 +45,7 @@ export default function EditorPage() {
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: '#FAFBFC',
-          fontFamily: "'Inter', sans-serif",
+          fontFamily: '"Segoe UI", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif',
         }}
       >
         <div style={{ textAlign: 'center' }}>
