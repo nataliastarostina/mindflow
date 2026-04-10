@@ -98,7 +98,7 @@ function toMarqueeRect(containerRect: DOMRect, screenRect: ScreenRect): MarqueeR
     x: screenRect.left - containerRect.left,
     y: screenRect.top - containerRect.top,
     width: screenRect.right - screenRect.left,
-    height: screenRect.bottom - containerRect.top,
+    height: screenRect.bottom - screenRect.top,
   };
 }
 
