@@ -146,6 +146,21 @@ function cleanTitle(value: string | undefined, fallback: string): string {
   return (title || fallback).slice(0, 100);
 }
 
+function getUniqueTitle(title: string, used: Set<string>): string {
+  if (!used.has(title)) return title;
+
+  let counter = 2;
+  let unique = title;
+  while (used.has(unique)) {
+    const suffix = ` (${counter})`;
+    const limit = 100 - suffix.length;
+    const base = title.slice(0, limit);
+    unique = base + suffix;
+    counter++;
+  }
+  return unique;
+}
+
 function compareNodes(a: MindMapNode, b: MindMapNode): number {
   if (a.type === 'central' && b.type !== 'central') return -1;
   if (b.type === 'central' && a.type !== 'central') return 1;
@@ -796,7 +811,8 @@ async function addSelectedNodeTabs(
   selectedNodes: MindMapNode[],
   selectedNodeIds: Set<string>,
   tabByNodeId: Record<string, string>,
-  labels: GoogleDocsExportLabels
+  labels: GoogleDocsExportLabels,
+  usedTitles: Set<string>
 ) {
   for (const node of selectedNodes) {
     let parentTabId: string | undefined;
@@ -809,10 +825,13 @@ async function addSelectedNodeTabs(
       parentId = mapData.nodes[parentId]?.parentId ?? null;
     }
 
+    const title = getUniqueTitle(cleanTitle(node.text, labels.untitledNode), usedTitles);
+    usedTitles.add(title);
+
     const response = await batchUpdateGoogleDocument(documentId, accessToken, [{
       addDocumentTab: {
         tabProperties: {
-          title: cleanTitle(node.text, labels.untitledNode),
+          title,
           ...(parentTabId ? { parentTabId } : {}),
         },
       },
@@ -853,6 +872,8 @@ export async function exportMindMapToGoogleDocs({
     throw new Error('Google Docs did not return the first tab id.');
   }
 
+  const usedTitles = new Set<string>([labels.structureTabTitle]);
+
   await batchUpdateGoogleDocument(documentId, accessToken, [{
     updateDocumentTabProperties: {
       tabProperties: {
@@ -864,7 +885,16 @@ export async function exportMindMapToGoogleDocs({
   }]);
 
   const tabByNodeId: Record<string, string> = {};
-  await addSelectedNodeTabs(documentId, accessToken, mapData, selectedNodes, selectedNodeIdSet, tabByNodeId, labels);
+  await addSelectedNodeTabs(
+    documentId,
+    accessToken,
+    mapData,
+    selectedNodes,
+    selectedNodeIdSet,
+    tabByNodeId,
+    labels,
+    usedTitles
+  );
 
   const contentRequests = createTabContentRequests(
     mapData,
