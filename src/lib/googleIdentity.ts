@@ -100,9 +100,7 @@ export function preloadGoogleDocsAccess(): Promise<void> {
   return loadGoogleIdentityScript();
 }
 
-export async function requestGoogleDocsAccessToken(clientId: string): Promise<string> {
-  await loadGoogleIdentityScript();
-
+function requestGoogleDocsAccessTokenLoaded(clientId: string): Promise<string> {
   const oauth2 = window.google?.accounts?.oauth2;
   if (!oauth2) {
     throw new Error('Google authorization is not available.');
@@ -154,4 +152,17 @@ export async function requestGoogleDocsAccessToken(clientId: string): Promise<st
       });
     }
   });
+}
+
+export function requestGoogleDocsAccessToken(clientId: string): Promise<string> {
+  if (typeof window === 'undefined') {
+    return Promise.reject(new Error('Google authorization is only available in the browser.'));
+  }
+
+  if (window.google?.accounts?.oauth2) {
+    // Keep the popup request inside the original click call stack when the script is already loaded.
+    return requestGoogleDocsAccessTokenLoaded(clientId);
+  }
+
+  return loadGoogleIdentityScript().then(() => requestGoogleDocsAccessTokenLoaded(clientId));
 }
