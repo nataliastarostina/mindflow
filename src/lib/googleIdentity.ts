@@ -2,6 +2,7 @@
 
 const GOOGLE_IDENTITY_SCRIPT_SRC = 'https://accounts.google.com/gsi/client';
 const GOOGLE_DOCS_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const GOOGLE_AUTH_TIMEOUT_MS = 30000;
 
 type GoogleTokenClient = {
   requestAccessToken: (overrideConfig?: { prompt?: string }) => void;
@@ -17,6 +18,11 @@ type GoogleTokenClientConfig = {
   client_id: string;
   scope: string;
   callback: (response: GoogleTokenResponse) => void;
+  error_callback?: (error: GoogleTokenClientError) => void;
+};
+
+type GoogleTokenClientError = {
+  type: 'popup_failed_to_open' | 'popup_closed' | 'unknown';
 };
 
 export class GoogleAuthorizationError extends Error {
@@ -90,6 +96,10 @@ function loadGoogleIdentityScript(): Promise<void> {
   return googleIdentityScriptPromise;
 }
 
+export function preloadGoogleDocsAccess(): Promise<void> {
+  return loadGoogleIdentityScript();
+}
+
 export async function requestGoogleDocsAccessToken(clientId: string): Promise<string> {
   await loadGoogleIdentityScript();
 
@@ -99,24 +109,49 @@ export async function requestGoogleDocsAccessToken(clientId: string): Promise<st
   }
 
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const finalize = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      callback();
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      finalize(() => reject(new GoogleAuthorizationError('Google authorization timed out.', 'timeout')));
+    }, GOOGLE_AUTH_TIMEOUT_MS);
+
     const tokenClient = oauth2.initTokenClient({
       client_id: clientId,
       scope: GOOGLE_DOCS_SCOPE,
       callback: (response) => {
-        if (response.error) {
-          reject(new GoogleAuthorizationError(response.error_description || response.error, response.error));
-          return;
-        }
+        finalize(() => {
+          if (response.error) {
+            reject(new GoogleAuthorizationError(response.error_description || response.error, response.error));
+            return;
+          }
 
-        if (!response.access_token) {
-          reject(new Error('Google did not return an access token.'));
-          return;
-        }
+          if (!response.access_token) {
+            reject(new Error('Google did not return an access token.'));
+            return;
+          }
 
-        resolve(response.access_token);
+          resolve(response.access_token);
+        });
+      },
+      error_callback: (error) => {
+        finalize(() => {
+          reject(new GoogleAuthorizationError(`Google authorization failed: ${error.type}.`, error.type));
+        });
       },
     });
 
-    tokenClient.requestAccessToken({ prompt: 'select_account consent' });
+    try {
+      tokenClient.requestAccessToken({ prompt: 'select_account consent' });
+    } catch (error) {
+      finalize(() => {
+        reject(error instanceof Error ? error : new Error('Google authorization failed to start.'));
+      });
+    }
   });
 }

@@ -11,7 +11,11 @@ import { X, FileImage, AlignLeft, Image as ImageIcon, FileText } from 'lucide-re
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 import { useI18n } from '@/stores/useLanguageStore';
-import { isGoogleAccessDeniedError, requestGoogleDocsAccessToken } from '@/lib/googleIdentity';
+import {
+  isGoogleAccessDeniedError,
+  preloadGoogleDocsAccess,
+  requestGoogleDocsAccessToken,
+} from '@/lib/googleIdentity';
 import { exportMindMapToGoogleDocs } from '@/lib/googleDocsExport';
 import type { MindMapNode } from '@/lib/types';
 
@@ -88,6 +92,14 @@ export default function ExportModal() {
         .map((node) => node.id)
     );
   }, [activeModal, mapData]);
+
+  useEffect(() => {
+    if (activeModal !== 'export' || !process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) return;
+
+    void preloadGoogleDocsAccess().catch((error) => {
+      console.warn('Google authorization script preload failed:', error);
+    });
+  }, [activeModal]);
 
   if (activeModal !== 'export') return null;
 
