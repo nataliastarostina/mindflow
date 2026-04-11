@@ -35,6 +35,20 @@ function nodeHasGoogleDocsContent(node: MindMapNode, commentCount: number): bool
   );
 }
 
+function getErrorDetail(error: unknown): string | null {
+  if (error instanceof Error) {
+    const message = error.message.trim();
+    return message ? message : null;
+  }
+
+  if (typeof error === 'string') {
+    const message = error.trim();
+    return message ? message : null;
+  }
+
+  return null;
+}
+
 export default function ExportModal() {
   const { language, t } = useI18n();
   const { activeModal, setActiveModal } = useUIStore();
@@ -259,7 +273,8 @@ export default function ExportModal() {
           ? t.exportModal.googleAccessBlocked
           : t.exportModal.googleExportFailed
         : t.exportModal.exportFailed;
-      alert(message);
+      const detail = format === 'google-docs' ? getErrorDetail(err) : null;
+      alert(detail ? `${message}\n\n${detail}` : message);
     } finally {
       setExporting(false);
     }
