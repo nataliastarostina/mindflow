@@ -316,6 +316,40 @@ function layoutTopDownSubtree(
   });
 }
 
+// ============ LIST LAYOUT ============
+function layoutList(
+  nodes: Record<string, MindMapNode>,
+  rootId: string
+): LayoutResult {
+  const tree = buildTree(nodes, rootId);
+  if (!tree) return { positions: {} };
+
+  const positions: Record<string, LayoutNodePosition> = {};
+  const { verticalSpacing, indentPerLevel } = LAYOUT_SPACING.list;
+
+  let currentY = 0;
+
+  function traverse(node: TreeNode, depth: number) {
+    const x = depth * indentPerLevel;
+
+    positions[node.id] = {
+      id: node.id,
+      x,
+      y: currentY,
+      width: node.width,
+      height: node.height,
+    };
+
+    currentY += node.height + verticalSpacing;
+
+    node.children.forEach((child) => traverse(child, depth + 1));
+  }
+
+  traverse(tree, 0);
+
+  return { positions };
+}
+
 // ============ MAIN ENTRY ============
 export function computeLayout(
   nodes: Record<string, MindMapNode>,
@@ -329,6 +363,8 @@ export function computeLayout(
       return layoutRightTree(nodes, rootId);
     case 'top-down':
       return layoutTopDown(nodes, rootId);
+    case 'list':
+      return layoutList(nodes, rootId);
     default:
       return layoutRadial(nodes, rootId);
   }

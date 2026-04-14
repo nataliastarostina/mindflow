@@ -28,7 +28,7 @@ function BranchEdge(props: any) {
   // Calculate distance-based curvature for natural-looking curves
   const dx = Math.abs(targetX - sourceX);
   const dy = Math.abs(targetY - sourceY);
-  const curvature = data.layoutMode === 'top-down'
+  const curvature = (data.layoutMode === 'top-down' || data.layoutMode === 'list')
     ? 0.5
     : Math.min(0.5, Math.max(0.2, dy / (dx + 100) * 0.5));
 

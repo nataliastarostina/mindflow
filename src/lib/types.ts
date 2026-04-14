@@ -12,7 +12,8 @@ export type NodeShape =
 export type LayoutMode =
   | 'radial'
   | 'right-tree'
-  | 'top-down';
+  | 'top-down'
+  | 'list';
 
 export type NodeType = 'central' | 'primary' | 'subtopic' | 'floating';
 

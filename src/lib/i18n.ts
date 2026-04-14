@@ -61,7 +61,7 @@ type Messages = {
     fitToScreen: string;
     centerMap: string;
     layoutMode: string;
-    layoutModes: Record<'radial' | 'right-tree' | 'top-down', string>;
+    layoutModes: Record<'radial' | 'right-tree' | 'top-down' | 'list', string>;
     contextualToolbar: {
       style: string;
       text: string;
@@ -279,6 +279,7 @@ export const messages: Record<Language, Messages> = {
         radial: 'Horizontal ↔',
         'right-tree': 'Right →',
         'top-down': 'Vertical ↓',
+        list: 'List',
       },
       contextualToolbar: {
         style: 'Style',
@@ -519,6 +520,7 @@ export const messages: Record<Language, Messages> = {
         radial: 'Горизонтально ↔',
         'right-tree': 'Вправо →',
         'top-down': 'Вертикально ↓',
+        list: 'Список',
       },
       contextualToolbar: {
         style: 'Стиль',

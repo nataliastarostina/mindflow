@@ -86,6 +86,10 @@ export const LAYOUT_SPACING = {
     siblingSpacing: 60,
     subtreeGap: 30,
   },
+  list: {
+    verticalSpacing: 12,
+    indentPerLevel: 40,
+  },
 } as const;
 
 // Font presets

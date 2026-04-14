@@ -28,6 +28,7 @@ export default function RightToolbar() {
     { mode: 'radial', label: getLayoutModeLabel('radial', language), icon: '🔄' },
     { mode: 'right-tree', label: getLayoutModeLabel('right-tree', language), icon: '➡️' },
     { mode: 'top-down', label: getLayoutModeLabel('top-down', language), icon: '📊' },
+    { mode: 'list', label: getLayoutModeLabel('list', language), icon: '📋' },
   ];
 
   const handleUndo = () => {
@@ -177,7 +178,10 @@ export default function RightToolbar() {
                 }}
               >
                 <span>{opt.icon}</span>
-                <span>{opt.label}</span>
+                <span style={{ flex: 1 }}>{opt.label}</span>
+                {mapData?.layoutMode === opt.mode && (
+                  <span style={{ fontSize: '14px', color: '#334155' }}>✓</span>
+                )}
               </button>
             ))}
           </div>

@@ -255,7 +255,7 @@ export default function Canvas() {
         let sourceHandle: string | null = null;
         let targetHandle: string | null = null;
 
-        if (mapData.layoutMode === 'top-down') {
+        if (mapData.layoutMode === 'top-down' || mapData.layoutMode === 'list') {
           sourceHandle = 'source-bottom';
           targetHandle = 'target-top';
         } else if (mapData.layoutMode === 'radial') {

@@ -276,7 +276,7 @@ function MindMapNodeComponent(props: any) {
   const [showDocumentPreview, setShowDocumentPreview] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  const isVertical = data.layoutMode === 'top-down';
+  const isVertical = data.layoutMode === 'top-down' || data.layoutMode === 'list';
   const isLeftSide = data.isLeftSide === true;
   const isCentral = data.nodeType === 'central';
   const textDocuments = data.textDocuments || [];
