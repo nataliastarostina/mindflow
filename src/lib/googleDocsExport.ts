@@ -4,6 +4,7 @@ import type { CommentData, MapData, MindMapNode } from './types';
 
 const DOCS_API_BASE = 'https://docs.googleapis.com/v1/documents';
 const REQUEST_CHUNK_SIZE = 80;
+const DEFAULT_FONT_FAMILY = 'Play';
 
 type GoogleDocsColor = {
   color: {
@@ -29,6 +30,8 @@ type GoogleDocsParagraphStyle = {
   namedStyleType?: 'NORMAL_TEXT' | 'TITLE' | 'HEADING_1' | 'HEADING_2' | 'HEADING_3';
   alignment?: 'START' | 'CENTER' | 'END';
   indentStart?: { magnitude: number; unit: 'PT' };
+  spaceAbove?: { magnitude: number; unit: 'PT' };
+  spaceBelow?: { magnitude: number; unit: 'PT' };
 };
 
 type GoogleDocsRange = {
@@ -202,19 +205,24 @@ function getPreorderNodes(mapData: MapData, childrenByParent: ChildrenByParent):
   return result;
 }
 
+type AssignedContentNode = {
+  node: MindMapNode;
+  depth: number;
+};
+
 function getAssignedContentNodes(
   rootNodeId: string,
   childrenByParent: ChildrenByParent,
   selectedNodeIds: Set<string>
-): MindMapNode[] {
-  const result: MindMapNode[] = [];
+): AssignedContentNode[] {
+  const result: AssignedContentNode[] = [];
 
-  const visit = (node: MindMapNode, belongsToRoot: boolean) => {
+  const visit = (node: MindMapNode, belongsToRoot: boolean, depth: number) => {
     const isRootNode = node.id === rootNodeId;
     const isSelectedBoundary = selectedNodeIds.has(node.id) && !isRootNode;
 
     if (isRootNode || (belongsToRoot && !isSelectedBoundary)) {
-      result.push(node);
+      result.push({ node, depth });
     }
 
     if (isSelectedBoundary) {
@@ -222,12 +230,12 @@ function getAssignedContentNodes(
     }
 
     const nextBelongsToRoot = belongsToRoot || isRootNode;
-    (childrenByParent[node.id] || []).forEach((child) => visit(child, nextBelongsToRoot));
+    (childrenByParent[node.id] || []).forEach((child) => visit(child, nextBelongsToRoot, depth + 1));
   };
 
-  const root = (childrenByParent.__all__ || []).find((node) => node.id === rootNodeId);
+  const root = (childrenByParent.__all__ || []).find((n) => n.id === rootNodeId);
   if (!root) return result;
-  visit(root, false);
+  visit(root, false, 0);
   return result;
 }
 
@@ -512,16 +520,44 @@ function htmlToBlocks(html: string): GoogleDocsExportBlock[] {
 
 class GoogleDocsTabWriter {
   private index = 1;
+  private pendingBulletStart: number | null = null;
+  private pendingBulletPreset: 'BULLET_DISC_CIRCLE_SQUARE' | 'NUMBERED_DECIMAL_ALPHA_ROMAN' | null = null;
 
   constructor(
     private readonly tabId: string,
     private readonly requests: GoogleDocsRequest[]
   ) {}
 
+  private flushBullets() {
+    if (this.pendingBulletStart !== null && this.pendingBulletPreset !== null) {
+      this.requests.push({
+        createParagraphBullets: {
+          range: {
+            tabId: this.tabId,
+            startIndex: this.pendingBulletStart,
+            endIndex: this.index,
+          },
+          bulletPreset: this.pendingBulletPreset,
+        },
+      });
+    }
+    this.pendingBulletStart = null;
+    this.pendingBulletPreset = null;
+  }
+
   addBlock(block: GoogleDocsExportBlock) {
     if (!block.text.trim()) return;
 
-    const leadingTabs = '\t'.repeat(block.listLevel || 0);
+    const isList = Boolean(block.listKind);
+    const bulletPreset = block.listKind === 'numbered'
+      ? 'NUMBERED_DECIMAL_ALPHA_ROMAN' as const
+      : 'BULLET_DISC_CIRCLE_SQUARE' as const;
+
+    if (!isList || (this.pendingBulletPreset !== null && this.pendingBulletPreset !== bulletPreset)) {
+      this.flushBullets();
+    }
+
+    const leadingTabs = isList ? '\t'.repeat(block.listLevel || 0) : '';
     const text = `${leadingTabs}${block.text}\n`;
     const startIndex = this.index;
     const endIndex = startIndex + text.length;
@@ -537,19 +573,11 @@ class GoogleDocsTabWriter {
 
     this.index = endIndex;
 
-    if (block.listKind) {
-      this.requests.push({
-        createParagraphBullets: {
-          range: {
-            tabId: this.tabId,
-            startIndex,
-            endIndex,
-          },
-          bulletPreset: block.listKind === 'numbered'
-            ? 'NUMBERED_DECIMAL_ALPHA_ROMAN'
-            : 'BULLET_DISC_CIRCLE_SQUARE',
-        },
-      });
+    if (isList) {
+      if (this.pendingBulletStart === null) {
+        this.pendingBulletStart = startIndex;
+        this.pendingBulletPreset = bulletPreset;
+      }
       this.index -= leadingTabs.length;
     }
 
@@ -557,7 +585,16 @@ class GoogleDocsTabWriter {
     const adjustedTextEnd = adjustedTextStart + block.text.length;
     const paragraphEnd = adjustedTextEnd + 1;
 
-    if (block.paragraphStyle && paragraphStyleFields(block.paragraphStyle)) {
+    const paragraphStyle: GoogleDocsParagraphStyle = {
+      ...block.paragraphStyle,
+      ...(isList ? {
+        spaceAbove: { magnitude: 0, unit: 'PT' },
+        spaceBelow: { magnitude: 0, unit: 'PT' },
+      } : {}),
+    };
+
+    const pFields = paragraphStyleFields(paragraphStyle);
+    if (pFields) {
       this.requests.push({
         updateParagraphStyle: {
           range: {
@@ -565,11 +602,23 @@ class GoogleDocsTabWriter {
             startIndex: adjustedTextStart,
             endIndex: paragraphEnd,
           },
-          paragraphStyle: block.paragraphStyle,
-          fields: paragraphStyleFields(block.paragraphStyle),
+          paragraphStyle,
+          fields: pFields,
         },
       });
     }
+
+    this.requests.push({
+      updateTextStyle: {
+        range: {
+          tabId: this.tabId,
+          startIndex: adjustedTextStart,
+          endIndex: adjustedTextEnd,
+        },
+        textStyle: { weightedFontFamily: { fontFamily: DEFAULT_FONT_FAMILY } },
+        fields: 'weightedFontFamily',
+      },
+    });
 
     block.runs.forEach((run) => {
       const fields = styleFields(run.style);
@@ -590,6 +639,7 @@ class GoogleDocsTabWriter {
   }
 
   addHeading(text: string, level: 1 | 2 | 3 = 2) {
+    this.flushBullets();
     const styleByLevel = {
       1: 'HEADING_1',
       2: 'HEADING_2',
@@ -606,6 +656,7 @@ class GoogleDocsTabWriter {
   }
 
   addParagraph(text: string, style?: GoogleDocsTextStyle) {
+    this.flushBullets();
     this.addBlock({
       text,
       runs: style && styleFields(style) ? [{ start: 0, end: text.length, style }] : [],
@@ -623,7 +674,12 @@ class GoogleDocsTabWriter {
   }
 
   addSpacer() {
+    this.flushBullets();
     this.addBlock({ text: ' ', runs: [] });
+  }
+
+  flush() {
+    this.flushBullets();
   }
 }
 
@@ -733,36 +789,40 @@ function addNodeContent(
   node: MindMapNode,
   mapData: MapData,
   labels: GoogleDocsExportLabels,
-  isPrimaryTabNode: boolean
+  depth: number
 ) {
   const comments = mapData.comments[node.id] || [];
-  if (!isPrimaryTabNode) {
-    writer.addHeading(node.text.trim() || labels.untitledNode, 2);
+
+  if (depth > 0) {
+    writer.addSpacer();
+    const headingLevel = Math.min(depth + 1, 3) as 1 | 2 | 3;
+    writer.addHeading(node.text.trim() || labels.untitledNode, headingLevel);
   }
 
   if (node.link?.url) {
+    writer.addSpacer();
     writer.addParagraph(`${labels.linkTitle}: ${node.link.url}`, { link: { url: node.link.url } });
   }
 
   const documents = node.textDocuments || [];
   const nonEmptyDocuments = documents.filter((document) => document.title.trim() || document.content.trim());
   if (nonEmptyDocuments.length > 0) {
-    writer.addHeading(labels.documentsTitle, 2);
     nonEmptyDocuments.forEach((document, index) => {
-      writer.addHeading(cleanTitle(document.title, `${labels.untitledDocument} ${index + 1}`), 3);
+      writer.addSpacer();
+      const docHeadingLevel = Math.min(depth + 2, 3) as 1 | 2 | 3;
+      writer.addHeading(cleanTitle(document.title, `${labels.untitledDocument} ${index + 1}`), docHeadingLevel);
       htmlToBlocks(document.content).forEach((block) => writer.addBlock(block));
     });
   }
 
   if (comments.length > 0) {
-    writer.addHeading(labels.commentsTitle, 2);
+    writer.addSpacer();
+    const commentHeadingLevel = Math.min(depth + 2, 3) as 1 | 2 | 3;
+    writer.addHeading(labels.commentsTitle, commentHeadingLevel);
     comments.forEach((comment) => {
       const author = comment.authorName ? `${comment.authorName}: ` : '';
       writer.addListItem(`${author}${comment.text}`, 0);
     });
-  }
-
-  if (hasNodeContent(node, comments)) {
     writer.addSpacer();
   }
 }
@@ -779,9 +839,11 @@ function createTabContentRequests(
   const structureWriter = new GoogleDocsTabWriter(firstTabId, requests);
 
   structureWriter.addHeading(mapData.title || labels.structureTabTitle, 1);
+  structureWriter.addSpacer();
   getRootOrderedNodes(mapData, childrenByParent).forEach((node) => {
     addHierarchyList(structureWriter, node.id, childrenByParent, labels, tabByNodeId, selectedNodeIds, 0, true);
   });
+  structureWriter.flush();
 
   Object.entries(tabByNodeId).forEach(([nodeId, tabId]) => {
     const node = mapData.nodes[nodeId];
@@ -789,6 +851,7 @@ function createTabContentRequests(
 
     const writer = new GoogleDocsTabWriter(tabId, requests);
     writer.addHeading(node.text.trim() || labels.untitledNode, 1);
+    writer.addSpacer();
 
     if ((childrenByParent[node.id] || []).length > 0) {
       writer.addHeading(labels.hierarchyTitle, 2);
@@ -796,13 +859,16 @@ function createTabContentRequests(
       writer.addSpacer();
     }
 
-    getAssignedContentNodes(node.id, childrenByParent, selectedNodeIds).forEach((contentNode, index) => {
-      addNodeContent(writer, contentNode, mapData, labels, index === 0);
+    getAssignedContentNodes(node.id, childrenByParent, selectedNodeIds).forEach(({ node: contentNode, depth }) => {
+      addNodeContent(writer, contentNode, mapData, labels, depth);
     });
+    writer.flush();
   });
 
   return requests;
 }
+
+const MAX_TAB_NESTING_LEVEL = 3;
 
 async function addSelectedNodeTabs(
   documentId: string,
@@ -814,13 +880,20 @@ async function addSelectedNodeTabs(
   labels: GoogleDocsExportLabels,
   usedTitles: Set<string>
 ) {
+  const tabNestingLevel: Record<string, number> = {};
+
   for (const node of selectedNodes) {
     let parentTabId: string | undefined;
+    let parentNodeId: string | undefined;
     let parentId = node.parentId;
     while (parentId) {
       if (selectedNodeIds.has(parentId) && tabByNodeId[parentId]) {
-        parentTabId = tabByNodeId[parentId];
-        break;
+        const parentLevel = tabNestingLevel[parentId] || 1;
+        if (parentLevel < MAX_TAB_NESTING_LEVEL) {
+          parentTabId = tabByNodeId[parentId];
+          parentNodeId = parentId;
+          break;
+        }
       }
       parentId = mapData.nodes[parentId]?.parentId ?? null;
     }
@@ -843,6 +916,7 @@ async function addSelectedNodeTabs(
       throw new Error('Google Docs did not return a tab id.');
     }
     tabByNodeId[node.id] = tabId;
+    tabNestingLevel[node.id] = parentNodeId ? (tabNestingLevel[parentNodeId] || 1) + 1 : 1;
   }
 }
 
