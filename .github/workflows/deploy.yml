@@ -31,6 +31,7 @@ jobs:
         run: npm run build
         env:
           NEXT_PUBLIC_BASE_PATH: /mindflow
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID: 189413314701-9ahujsgm2empf4ljvsim3l4edi8g21aj.apps.googleusercontent.com
 
       - uses: actions/upload-pages-artifact@v3
         with:
