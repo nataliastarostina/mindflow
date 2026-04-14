@@ -11,6 +11,8 @@ import { X, FileImage, AlignLeft, Image as ImageIcon, FileText } from 'lucide-re
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 import { useI18n } from '@/stores/useLanguageStore';
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '189413314701-9ahujsgm2empf4ljvsim3l4edi8g21aj.apps.googleusercontent.com';
+
 import {
   isGoogleAccessDeniedError,
   preloadGoogleDocsAccess,
@@ -108,7 +110,7 @@ export default function ExportModal() {
   }, [activeModal, mapData]);
 
   useEffect(() => {
-    if (activeModal !== 'export' || !process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) return;
+    if (activeModal !== 'export' || !GOOGLE_CLIENT_ID) return;
 
     void preloadGoogleDocsAccess().catch((error) => {
       console.warn('Google authorization script preload failed:', error);
@@ -123,13 +125,12 @@ export default function ExportModal() {
     try {
       if (format === 'google-docs') {
         if (!mapData) throw new Error('No map data');
-        const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-        if (!googleClientId) {
+        if (!GOOGLE_CLIENT_ID) {
           alert(t.exportModal.googleClientMissing);
           return;
         }
 
-        const accessToken = await requestGoogleDocsAccessToken(googleClientId);
+        const accessToken = await requestGoogleDocsAccessToken(GOOGLE_CLIENT_ID);
         const result = await exportMindMapToGoogleDocs({
           mapData,
           selectedNodeIds: googleSelectedNodeIds,
