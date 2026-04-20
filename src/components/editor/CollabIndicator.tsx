@@ -5,6 +5,8 @@
 
 import { useState } from 'react';
 import { Link2, Users, Check } from 'lucide-react';
+import { useMapStore } from '@/stores/useMapStore';
+import { encodeMapToHash } from '@/components/editor/CollabEditorClient';
 
 interface Props {
   room: string;
@@ -14,12 +16,19 @@ interface Props {
 
 export default function CollabIndicator({ room, peers, status }: Props) {
   const [copied, setCopied] = useState(false);
+  const mapData = useMapStore((s) => s.mapData);
 
   const inviteUrl = (() => {
     if (typeof window === 'undefined') return '';
     const url = new URL(window.location.href);
     url.search = '';
+    url.hash = '';
     url.searchParams.set('room', room);
+    // Embed map snapshot in hash so joiner loads instantly without host online.
+    if (mapData) {
+      const encoded = encodeMapToHash(mapData);
+      if (encoded) url.hash = encoded;
+    }
     return url.toString();
   })();
 

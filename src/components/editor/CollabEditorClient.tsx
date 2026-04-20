@@ -4,11 +4,12 @@
 // ============================================================
 //
 // URL params:
-//   ?room=ROOM_ID            joiner — waits for snapshot from peers
+//   ?room=ROOM_ID            joiner — reads map from URL hash or waits for P2P
 //   ?room=ROOM_ID&mapId=MAP  owner — publishes local map into the room
 //
-// Reuses the existing EditorShell. The main editor (/editor) is
-// untouched.
+// The invite link encodes the full map snapshot in the URL hash so the
+// joiner can open the card immediately without the host being online.
+// P2P sync (Yjs/WebRTC) still runs on top for live changes.
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -27,6 +28,28 @@ import {
 
 type Status = 'connecting' | 'waiting-for-host' | 'live';
 
+// Encode map into URL hash so joiners can load it without host online.
+export function encodeMapToHash(map: MapData): string {
+  try {
+    const json = JSON.stringify(map);
+    // btoa only handles latin1 — use encodeURIComponent for unicode safety.
+    return btoa(encodeURIComponent(json));
+  } catch {
+    return '';
+  }
+}
+
+function decodeMapFromHash(hash: string): MapData | null {
+  try {
+    const raw = hash.startsWith('#') ? hash.slice(1) : hash;
+    if (!raw) return null;
+    const json = decodeURIComponent(atob(raw));
+    return JSON.parse(json) as MapData;
+  } catch {
+    return null;
+  }
+}
+
 export default function CollabEditorClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -41,8 +64,6 @@ export default function CollabEditorClient() {
   // Bootstrap: create session, decide owner vs joiner.
   useEffect(() => {
     if (!room) {
-      // No room — generate one and become owner of a fresh demo map (or
-      // the supplied mapId).
       const newRoom = generateRoomId();
       const params = new URLSearchParams();
       params.set('room', newRoom);
@@ -55,41 +76,46 @@ export default function CollabEditorClient() {
     sessionRef.current = session;
 
     const updatePeers = () => {
-      // y-webrtc exposes connected peers via awareness states minus self.
       const states = session.provider.awareness.getStates();
       setPeers(Math.max(0, states.size - 1));
     };
     session.provider.awareness.on('change', updatePeers);
     updatePeers();
 
-    // Owner path: push local map into the room.
     if (mapId) {
+      // Owner: load from localStorage and publish to Yjs.
       const local = getMap(mapId);
       if (local) {
         setInitialMap(local);
         setStatus('live');
-        // Publish after the doc has had a tick to settle.
         setTimeout(() => publishSnapshot(session, local), 0);
       } else {
-        // Map not in localStorage; fall back to joiner behavior.
         setStatus('waiting-for-host');
       }
     } else {
-      // Joiner path: try existing snapshot, otherwise wait for one.
+      // Joiner: 1) try Yjs doc, 2) try URL hash, 3) wait for P2P.
       const existing = readSnapshot(session);
       if (existing) {
         setInitialMap(existing);
         setStatus('live');
       } else {
-        setStatus('waiting-for-host');
+        const fromHash = decodeMapFromHash(window.location.hash);
+        if (fromHash) {
+          setInitialMap(fromHash);
+          setStatus('live');
+          // Also publish so P2P peers get it.
+          setTimeout(() => publishSnapshot(session, fromHash), 0);
+        } else {
+          setStatus('waiting-for-host');
+        }
       }
     }
 
-    // Watch for incoming snapshot if we don't have one yet.
+    // Watch for incoming P2P snapshot.
     const onSnapshot = () => {
       const snap = readSnapshot(session);
-      if (snap && !initialMap) {
-        setInitialMap(snap);
+      if (snap) {
+        setInitialMap((prev) => prev ?? snap);
         setStatus('live');
       }
     };
@@ -104,12 +130,11 @@ export default function CollabEditorClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room, mapId]);
 
-  // Sync bridge: only mounts once initialMap is loaded into the store.
   if (!room) return <FullscreenMessage text="Создание комнаты…" />;
   if (status === 'waiting-for-host' || !initialMap) {
     return (
       <FullscreenMessage
-        text="Ожидаем хоста комнаты… Откройте эту страницу с компьютера, где есть исходная майндкарта."
+        text="Загружаем карту… Если экран не меняется — попросите отправителя снова скопировать и прислать ссылку."
         sub={`Комната: ${room}`}
       />
     );
