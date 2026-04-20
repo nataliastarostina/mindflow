@@ -25,15 +25,15 @@ import {
   generateRoomId,
   type CollabSession,
 } from '@/lib/collab';
+import LZString from 'lz-string';
 
 type Status = 'connecting' | 'waiting-for-host' | 'live';
 
 // Encode map into URL hash so joiners can load it without host online.
+// lz-string → URL-safe chars only (no +/=), and ~3x smaller than base64.
 export function encodeMapToHash(map: MapData): string {
   try {
-    const json = JSON.stringify(map);
-    // btoa only handles latin1 — use encodeURIComponent for unicode safety.
-    return btoa(encodeURIComponent(json));
+    return LZString.compressToEncodedURIComponent(JSON.stringify(map));
   } catch {
     return '';
   }
@@ -43,8 +43,8 @@ function decodeMapFromHash(hash: string): MapData | null {
   try {
     const raw = hash.startsWith('#') ? hash.slice(1) : hash;
     if (!raw) return null;
-    const json = decodeURIComponent(atob(raw));
-    return JSON.parse(json) as MapData;
+    const json = LZString.decompressFromEncodedURIComponent(raw);
+    return json ? (JSON.parse(json) as MapData) : null;
   } catch {
     return null;
   }
