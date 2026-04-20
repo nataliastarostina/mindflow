@@ -185,7 +185,11 @@ function CollabBridge({
       if (!snap) return;
       applyingRemote = true;
       try {
-        useMapStore.getState().loadMap(snap);
+        const store = useMapStore.getState();
+        store.loadMap(snap);
+        // Persist immediately so a refresh of the plain /editor tab sees
+        // the remote change without waiting for the autosave debounce.
+        store.persist();
       } finally {
         applyingRemote = false;
       }
