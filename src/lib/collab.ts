@@ -9,37 +9,47 @@
 
 import * as Y from 'yjs';
 import { WebrtcProvider } from 'y-webrtc';
+import { WebsocketProvider } from 'y-websocket';
 import type { MapData } from './types';
 
 export interface CollabSession {
   doc: Y.Doc;
   provider: WebrtcProvider;
+  wsProvider: WebsocketProvider;
   shared: Y.Map<string>;
+  awareness: WebrtcProvider['awareness'];
   destroy: () => void;
 }
 
+// Public Yjs websocket relay — works across any network (no NAT issues).
+// WebRTC runs alongside for lower-latency P2P when it can connect.
+const WS_RELAY = 'wss://demos.yjs.dev/ws';
+
 export function createCollabSession(roomId: string): CollabSession {
   const doc = new Y.Doc();
-  const provider = new WebrtcProvider(`mindflow-${roomId}`, doc, {
+  const room = `mindflow-${roomId}`;
+
+  const wsProvider = new WebsocketProvider(WS_RELAY, room, doc);
+  const provider = new WebrtcProvider(room, doc, {
     signaling: [
       'wss://signaling.yjs.dev',
       'wss://y-webrtc-signaling-eu.herokuapp.com',
       'wss://y-webrtc-signaling-us.herokuapp.com',
     ],
+    awareness: wsProvider.awareness,
   });
   const shared = doc.getMap<string>('mindflow');
 
   return {
     doc,
     provider,
+    wsProvider,
     shared,
+    awareness: wsProvider.awareness,
     destroy: () => {
-      try {
-        provider.destroy();
-      } catch {}
-      try {
-        doc.destroy();
-      } catch {}
+      try { provider.destroy(); } catch {}
+      try { wsProvider.destroy(); } catch {}
+      try { doc.destroy(); } catch {}
     },
   };
 }
