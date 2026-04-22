@@ -273,6 +273,7 @@ function MindMapNodeComponent(props: any) {
   const isEditing = editingNodeId === data.mindmapNodeId;
   const isSelected = selected || selectedNodeIds.includes(data.mindmapNodeId);
   const [showLinkPreview, setShowLinkPreview] = useState(false);
+  const linkPreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showDocumentPreview, setShowDocumentPreview] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -816,16 +817,42 @@ function MindMapNodeComponent(props: any) {
             {data.hasLink && data.link && (
               <div
                 style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
-                onMouseEnter={() => setShowLinkPreview(true)}
-                onMouseLeave={() => setShowLinkPreview(false)}
+                onMouseEnter={() => {
+                  if (linkPreviewTimerRef.current) {
+                    clearTimeout(linkPreviewTimerRef.current);
+                    linkPreviewTimerRef.current = null;
+                  }
+                  setShowLinkPreview(true);
+                }}
+                onMouseLeave={() => {
+                  linkPreviewTimerRef.current = setTimeout(() => {
+                    setShowLinkPreview(false);
+                  }, 300);
+                }}
               >
                 <Link2 size={12} style={{ opacity: 0.6, cursor: 'pointer' }} />
                 {showLinkPreview && (
                   <div
                     style={{
                       position: 'absolute',
-                      top: 'calc(100% + 8px)',
+                      top: '100%',
                       right: 0,
+                      paddingTop: '8px',
+                    }}
+                    onMouseEnter={() => {
+                      if (linkPreviewTimerRef.current) {
+                        clearTimeout(linkPreviewTimerRef.current);
+                        linkPreviewTimerRef.current = null;
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      linkPreviewTimerRef.current = setTimeout(() => {
+                        setShowLinkPreview(false);
+                      }, 300);
+                    }}
+                  >
+                  <div
+                    style={{
                       width: '260px',
                       backgroundColor: '#FFFFFF',
                       borderRadius: '12px',
@@ -869,6 +896,7 @@ function MindMapNodeComponent(props: any) {
                       <ExternalLink size={12} />
                       {t.node.openLink}
                     </a>
+                  </div>
                   </div>
                 )}
               </div>

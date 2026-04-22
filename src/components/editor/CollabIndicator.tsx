@@ -4,9 +4,11 @@
 // ============================================================
 
 import { useState } from 'react';
-import { Link2, Users, Check } from 'lucide-react';
+import { Link2, Users, Check, X } from 'lucide-react';
 import { useMapStore } from '@/stores/useMapStore';
-import { encodeMapToHash } from '@/components/editor/CollabEditorClient';
+import { clearCollabRoomForMap } from '@/lib/collabRooms';
+
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
 
 interface Props {
   room: string;
@@ -18,19 +20,10 @@ export default function CollabIndicator({ room, peers, status }: Props) {
   const [copied, setCopied] = useState(false);
   const mapData = useMapStore((s) => s.mapData);
 
-  const inviteUrl = (() => {
-    if (typeof window === 'undefined') return '';
-    const url = new URL(window.location.href);
-    url.search = '';
-    url.hash = '';
-    url.searchParams.set('room', room);
-    // Embed map snapshot in hash so joiner loads instantly without host online.
-    if (mapData) {
-      const encoded = encodeMapToHash(mapData);
-      if (encoded) url.hash = encoded;
-    }
-    return url.toString();
-  })();
+  const inviteUrl =
+    typeof window === 'undefined'
+      ? ''
+      : `${window.location.origin}${basePath}/editor-collab/?room=${encodeURIComponent(room)}`;
 
   const onCopy = async () => {
     try {
@@ -105,6 +98,26 @@ export default function CollabIndicator({ room, peers, status }: Props) {
         {copied ? <Check size={13} /> : <Link2 size={13} />}
         <span>{copied ? 'Скопировано' : 'Скопировать ссылку'}</span>
       </button>
+      {mapData && (
+        <button
+          onClick={() => clearCollabRoomForMap(mapData.id)}
+          title="Завершить сессию"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 26,
+            height: 26,
+            borderRadius: 8,
+            border: 'none',
+            backgroundColor: '#F1F5F9',
+            color: '#64748B',
+            cursor: 'pointer',
+          }}
+        >
+          <X size={13} />
+        </button>
+      )}
     </div>
   );
 }

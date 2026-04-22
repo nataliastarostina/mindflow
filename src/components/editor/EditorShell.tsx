@@ -24,6 +24,8 @@ import { useHistoryStore } from '@/stores/useHistoryStore';
 import { AUTOSAVE_DEBOUNCE_MS } from '@/lib/constants';
 import type { MapData } from '@/lib/types';
 import { useI18n } from '@/stores/useLanguageStore';
+import { useCollabForMap } from '@/hooks/useCollabForMap';
+import CollabIndicator from '@/components/editor/CollabIndicator';
 
 interface EditorShellProps {
   initialMap: MapData;
@@ -35,6 +37,7 @@ export default function EditorShell({ initialMap }: EditorShellProps) {
   const { setActivePopover } = useUIStore();
   const { pushState } = useHistoryStore();
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const collab = useCollabForMap(mapData?.id);
 
   // Load map on mount
   useEffect(() => {
@@ -61,6 +64,27 @@ export default function EditorShell({ initialMap }: EditorShellProps) {
     const handleBlur = () => persist();
     window.addEventListener('blur', handleBlur);
     return () => window.removeEventListener('blur', handleBlur);
+  }, [persist]);
+
+  // Save synchronously before the tab goes away (refresh, close, nav).
+  // Without this a refresh within the autosave debounce window loses edits.
+  useEffect(() => {
+    const flush = () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      persist();
+    };
+    window.addEventListener('beforeunload', flush);
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flush();
+    });
+    return () => {
+      window.removeEventListener('beforeunload', flush);
+      window.removeEventListener('pagehide', flush);
+    };
   }, [persist]);
 
   // Close popovers on escape
@@ -123,6 +147,15 @@ export default function EditorShell({ initialMap }: EditorShellProps) {
         {/* Modal Layer */}
         <ExportModal />
         <ShareModal />
+
+        {/* Collab indicator — only shown while a collab room is active */}
+        {collab.room && (
+          <CollabIndicator
+            room={collab.room}
+            peers={collab.peers}
+            status={collab.status}
+          />
+        )}
 
         {/* Save indicator */}
         <div

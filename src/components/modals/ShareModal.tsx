@@ -10,7 +10,7 @@ import { getEditorHref } from '@/lib/routes';
 import { X, Copy, Check, Link2, Users } from 'lucide-react';
 import { useI18n } from '@/stores/useLanguageStore';
 import { generateRoomId } from '@/lib/collab';
-import { encodeMapToHash } from '@/components/editor/CollabEditorClient';
+import { setCollabRoomForMap, getCollabRoomForMap } from '@/lib/collabRooms';
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
 
@@ -33,10 +33,11 @@ export default function ShareModal() {
   const buildCollabUrl = () => {
     if (!mapData || typeof window === 'undefined') return '';
     persist();
-    const room = generateRoomId();
-    const encoded = encodeMapToHash(mapData);
-    const url = `${window.location.origin}${basePath}/editor-collab/?room=${room}${encoded ? `#${encoded}` : ''}`;
-    return url;
+    // Reuse an existing room for this map so all tabs/devices land in the
+    // same session, otherwise mint a fresh id.
+    const room = getCollabRoomForMap(mapData.id) || generateRoomId();
+    setCollabRoomForMap(mapData.id, room);
+    return `${window.location.origin}${basePath}/editor-collab/?room=${encodeURIComponent(room)}`;
   };
 
   const copyToClipboard = async (text: string) => {
@@ -59,8 +60,8 @@ export default function ShareModal() {
     await copyToClipboard(url);
     setCollabCopied(true);
     setTimeout(() => setCollabCopied(false), 2000);
-    const ownerUrl = url.split('#')[0] + (mapData ? `&mapId=${encodeURIComponent(mapData.id)}` : '');
-    window.open(ownerUrl, '_blank', 'noopener');
+    // No new tab — the current /editor is now the collab host (the
+    // useCollabForMap hook picks up the room marker automatically).
   };
 
   const handleCopy = async () => {
@@ -254,7 +255,7 @@ export default function ShareModal() {
           )}
 
           <div style={{ fontSize: 11, color: '#94A3B8', lineHeight: 1.5, marginTop: 8 }}>
-            Ссылка откроет карту у получателя, и вы будете редактировать её вместе в реальном времени. Ваша сессия откроется в новой вкладке.
+            Отправьте ссылку второму участнику — карта откроется у него, и вы сможете редактировать её вместе в реальном времени. Эта вкладка уже подключена к сессии.
           </div>
         </div>
       </div>
