@@ -438,9 +438,12 @@ function MindMapNodeComponent(props: any) {
 
   const commitEdit = useCallback(() => {
     const text = inputRef.current?.textContent?.trim() || data.label;
+    if (text !== data.label && mapData) {
+      pushState(mapData);
+    }
     updateNodeText(data.mindmapNodeId, text);
     setEditingNode(null);
-  }, [data.mindmapNodeId, data.label, updateNodeText, setEditingNode]);
+  }, [data.mindmapNodeId, data.label, mapData, pushState, updateNodeText, setEditingNode]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
