@@ -18,7 +18,23 @@ type Tab = 'shape' | 'border' | 'line';
 export default function StylePopover() {
   const { language, t } = useI18n();
   const { selectedNodeIds, activePopover, setActivePopover } = useUIStore();
-  const { mapData, updateNodeStyle } = useMapStore();
+  const { mapData, updateNodeStyle, updateNodeStyles } = useMapStore();
+
+  const collectDescendants = (rootId: string): string[] => {
+    if (!mapData) return [rootId];
+    const result: string[] = [rootId];
+    const stack = [rootId];
+    while (stack.length) {
+      const current = stack.pop()!;
+      Object.values(mapData.nodes).forEach((n) => {
+        if (n.parentId === current) {
+          result.push(n.id);
+          stack.push(n.id);
+        }
+      });
+    }
+    return result;
+  };
   const [activeTab, setActiveTab] = useState<Tab>('shape');
   const { getNodes } = useReactFlow();
   const viewport = useViewport();
@@ -135,7 +151,14 @@ export default function StylePopover() {
             {THEME_COLORS.map((color) => (
               <button
                 key={color}
-                onClick={() => updateNodeStyle(nodeId, { fillColor: color, textColor: isLightColor(color) ? '#1E293B' : '#FFFFFF' })}
+                onClick={() => {
+                  const ids = collectDescendants(nodeId);
+                  updateNodeStyles(ids, {
+                    fillColor: color,
+                    textColor: isLightColor(color) ? '#1E293B' : '#FFFFFF',
+                    lineColor: color,
+                  });
+                }}
                 style={{
                   width: '24px',
                   height: '24px',
