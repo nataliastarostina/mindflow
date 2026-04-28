@@ -3,37 +3,66 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import EditorShell from '@/components/editor/EditorShell';
-import { getMap } from '@/lib/api';
+import { getMyMap, getMapBySlug } from '@/lib/api';
 import type { MapData } from '@/lib/types';
 import { useI18n } from '@/stores/useLanguageStore';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 export default function EditorPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useI18n();
+  const { user, loading: authLoading } = useAuth();
   const [map, setMap] = useState<MapData | null>(null);
+  const [shareSlug, setShareSlug] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
   const mapId = searchParams.get('mapId');
+  const slug = searchParams.get('s');
 
   useEffect(() => {
-    if (!mapId) {
-      router.push('/');
-      return;
-    }
+    let cancelled = false;
 
-    const loaded = getMap(mapId);
-    if (!loaded) {
-      router.push('/');
-      return;
-    }
+    const run = async () => {
+      // Shared map via slug — works for any visitor, no auth needed.
+      if (slug) {
+        const loaded = await getMapBySlug(slug);
+        if (cancelled) return;
+        if (!loaded) {
+          router.replace('/');
+          return;
+        }
+        setMap(loaded);
+        setShareSlug(slug);
+        setLoading(false);
+        return;
+      }
 
-    const timeoutId = window.setTimeout(() => {
+      // Owner-scoped map — needs a session.
+      if (!mapId) {
+        router.replace('/');
+        return;
+      }
+      if (authLoading) return;
+      if (!user) {
+        router.replace('/login');
+        return;
+      }
+
+      const loaded = await getMyMap(mapId);
+      if (cancelled) return;
+      if (!loaded) {
+        router.replace('/');
+        return;
+      }
       setMap(loaded);
+      setShareSlug(null);
       setLoading(false);
-    }, 0);
+    };
 
-    return () => window.clearTimeout(timeoutId);
-  }, [mapId, router]);
+    run();
+    return () => { cancelled = true; };
+  }, [mapId, slug, router, user, authLoading]);
 
   if (loading || !map) {
     return (
@@ -73,5 +102,5 @@ export default function EditorPageClient() {
     );
   }
 
-  return <EditorShell initialMap={map} />;
+  return <EditorShell initialMap={map} shareSlug={shareSlug} />;
 }

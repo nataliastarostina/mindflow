@@ -24,26 +24,24 @@ import { useHistoryStore } from '@/stores/useHistoryStore';
 import { AUTOSAVE_DEBOUNCE_MS } from '@/lib/constants';
 import type { MapData } from '@/lib/types';
 import { useI18n } from '@/stores/useLanguageStore';
-import { useCollabForMap } from '@/hooks/useCollabForMap';
-import CollabIndicator from '@/components/editor/CollabIndicator';
 
 interface EditorShellProps {
   initialMap: MapData;
+  shareSlug?: string | null;
 }
 
-export default function EditorShell({ initialMap }: EditorShellProps) {
+export default function EditorShell({ initialMap, shareSlug = null }: EditorShellProps) {
   const { t } = useI18n();
   const { loadMap, mapData, persist } = useMapStore();
   const { setActivePopover } = useUIStore();
   const { pushState } = useHistoryStore();
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const collab = useCollabForMap(mapData?.id);
 
   // Load map on mount
   useEffect(() => {
-    loadMap(initialMap);
+    loadMap(initialMap, { shareSlug });
     pushState(initialMap);
-  }, [initialMap, loadMap, pushState]);
+  }, [initialMap, shareSlug, loadMap, pushState]);
 
   // Autosave
   useEffect(() => {
@@ -147,15 +145,6 @@ export default function EditorShell({ initialMap }: EditorShellProps) {
         {/* Modal Layer */}
         <ExportModal />
         <ShareModal />
-
-        {/* Collab indicator — only shown while a collab room is active */}
-        {collab.room && (
-          <CollabIndicator
-            room={collab.room}
-            peers={collab.peers}
-            status={collab.status}
-          />
-        )}
 
         {/* Save indicator */}
         <div

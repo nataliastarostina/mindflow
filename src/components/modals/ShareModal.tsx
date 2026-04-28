@@ -1,44 +1,61 @@
 'use client';
 // ============================================================
-// ShareModal — Link sharing
+// ShareModal — Short shareable link via Supabase slug
 // ============================================================
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useUIStore } from '@/stores/useUIStore';
 import { useMapStore } from '@/stores/useMapStore';
-import { getEditorHref } from '@/lib/routes';
-import { X, Copy, Check, Link2, Users } from 'lucide-react';
+import { ensureShareSlug } from '@/lib/api';
+import { buildShareUrl } from '@/lib/routes';
+import { X, Copy, Check, Link2 } from 'lucide-react';
 import { useI18n } from '@/stores/useLanguageStore';
-import { generateRoomId } from '@/lib/collab';
-import { setCollabRoomForMap, getCollabRoomForMap } from '@/lib/collabRooms';
-
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
 
 export default function ShareModal() {
   const { t } = useI18n();
   const { activeModal, setActiveModal } = useUIStore();
   const mapData = useMapStore((s) => s.mapData);
   const persist = useMapStore((s) => s.persist);
+  const shareSlugInStore = useMapStore((s) => s.shareSlug);
+  const [shareUrl, setShareUrl] = useState('');
+  const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [collabCopied, setCollabCopied] = useState(false);
-  const [collabUrl, setCollabUrl] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  if (activeModal !== 'share') return null;
+  const open = activeModal === 'share';
 
-  const shareUrl =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}${basePath}${getEditorHref(mapData?.id || '')}`
-      : '';
+  useEffect(() => {
+    if (!open || !mapData) return;
+    let cancelled = false;
+    setBusy(true);
+    setError(null);
 
-  const buildCollabUrl = () => {
-    if (!mapData || typeof window === 'undefined') return '';
-    persist();
-    // Reuse an existing room for this map so all tabs/devices land in the
-    // same session, otherwise mint a fresh id.
-    const room = getCollabRoomForMap(mapData.id) || generateRoomId();
-    setCollabRoomForMap(mapData.id, room);
-    return `${window.location.origin}${basePath}/editor-collab/?room=${encodeURIComponent(room)}`;
-  };
+    (async () => {
+      // Make sure the latest in-memory edits hit the database before we mint
+      // a slug — otherwise the recipient could open an out-of-date snapshot.
+      persist();
+
+      // If the editor is already in shared-mode, reuse that slug; otherwise
+      // ask the API to ensure (or create) one for this owner-scoped map.
+      let slug = shareSlugInStore;
+      if (!slug) {
+        slug = await ensureShareSlug(mapData.id);
+      }
+
+      if (cancelled) return;
+      if (!slug) {
+        setError(t.shareModal.errorCouldNotShare);
+        setBusy(false);
+        return;
+      }
+      setShareUrl(buildShareUrl(slug));
+      setBusy(false);
+    })();
+
+    return () => { cancelled = true; };
+  }, [open, mapData, persist, shareSlugInStore, t]);
+
+  if (!open) return null;
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -53,33 +70,11 @@ export default function ShareModal() {
     }
   };
 
-  const handleCollab = async () => {
-    const url = buildCollabUrl();
-    if (!url) return;
-    setCollabUrl(url);
-    await copyToClipboard(url);
-    setCollabCopied(true);
-    setTimeout(() => setCollabCopied(false), 2000);
-    // No new tab — the current /editor is now the collab host (the
-    // useCollabForMap hook picks up the room marker automatically).
-  };
-
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Fallback
-      const ta = document.createElement('textarea');
-      ta.value = shareUrl;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+    if (!shareUrl) return;
+    await copyToClipboard(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -108,24 +103,30 @@ export default function ShareModal() {
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1E293B', margin: 0 }}>{t.shareModal.title}</h2>
-          <button onClick={() => setActiveModal(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94A3B8' }}>
+          <button
+            onClick={() => setActiveModal(null)}
+            style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94A3B8' }}
+          >
             <X size={20} />
           </button>
         </div>
 
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          padding: '12px',
-          backgroundColor: '#F8FAFC',
-          borderRadius: '10px',
-          marginBottom: '16px',
-        }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '12px',
+            backgroundColor: '#F8FAFC',
+            borderRadius: '10px',
+            marginBottom: '12px',
+          }}
+        >
           <Link2 size={18} style={{ color: '#6366F1', flexShrink: 0 }} />
           <input
             readOnly
-            value={shareUrl}
+            value={busy ? t.common.loading : shareUrl}
+            onFocus={(e) => e.currentTarget.select()}
             style={{
               flex: 1,
               border: 'none',
@@ -133,10 +134,12 @@ export default function ShareModal() {
               outline: 'none',
               fontSize: '13px',
               color: '#475569',
+              minWidth: 0,
             }}
           />
           <button
             onClick={handleCopy}
+            disabled={busy || !shareUrl}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -148,9 +151,9 @@ export default function ShareModal() {
               color: '#FFFFFF',
               fontSize: '13px',
               fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'background-color 0.2s',
+              cursor: busy ? 'wait' : 'pointer',
               flexShrink: 0,
+              opacity: busy ? 0.6 : 1,
             }}
           >
             {copied ? <Check size={14} /> : <Copy size={14} />}
@@ -158,105 +161,12 @@ export default function ShareModal() {
           </button>
         </div>
 
-        <div style={{ fontSize: '12px', color: '#94A3B8', lineHeight: '1.5', marginBottom: 20 }}>
+        {error && (
+          <div style={{ fontSize: 12, color: '#DC2626', marginBottom: 12 }}>{error}</div>
+        )}
+
+        <div style={{ fontSize: '12px', color: '#94A3B8', lineHeight: '1.5' }}>
           {t.shareModal.description}
-        </div>
-
-        <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <Users size={16} style={{ color: '#10B981' }} />
-            <span style={{ fontSize: 14, fontWeight: 600, color: '#1E293B' }}>
-              Совместное редактирование
-            </span>
-            <span style={{
-              fontSize: 10,
-              fontWeight: 600,
-              color: '#10B981',
-              backgroundColor: '#D1FAE5',
-              padding: '2px 6px',
-              borderRadius: 4,
-              textTransform: 'uppercase',
-            }}>
-              Beta
-            </span>
-          </div>
-
-          {!collabUrl ? (
-            <button
-              onClick={handleCollab}
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                padding: '10px 14px',
-                borderRadius: 10,
-                border: 'none',
-                backgroundColor: '#10B981',
-                color: '#FFFFFF',
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: 'pointer',
-              }}
-            >
-              <Users size={14} />
-              Создать ссылку для коллабы
-            </button>
-          ) : (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: 12,
-              backgroundColor: '#F0FDF4',
-              borderRadius: 10,
-            }}>
-              <Link2 size={18} style={{ color: '#10B981', flexShrink: 0 }} />
-              <input
-                readOnly
-                value={collabUrl}
-                onFocus={(e) => e.currentTarget.select()}
-                style={{
-                  flex: 1,
-                  border: 'none',
-                  background: 'none',
-                  outline: 'none',
-                  fontSize: 13,
-                  color: '#475569',
-                  minWidth: 0,
-                }}
-              />
-              <button
-                onClick={async () => {
-                  await copyToClipboard(collabUrl);
-                  setCollabCopied(true);
-                  setTimeout(() => setCollabCopied(false), 2000);
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '8px 14px',
-                  borderRadius: 8,
-                  border: 'none',
-                  backgroundColor: collabCopied ? '#22C55E' : '#10B981',
-                  color: '#FFFFFF',
-                  fontSize: 13,
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                }}
-              >
-                {collabCopied ? <Check size={14} /> : <Copy size={14} />}
-                {collabCopied ? t.common.copied : t.common.copy}
-              </button>
-            </div>
-          )}
-
-          <div style={{ fontSize: 11, color: '#94A3B8', lineHeight: 1.5, marginTop: 8 }}>
-            Отправьте ссылку второму участнику — карта откроется у него, и вы сможете редактировать её вместе в реальном времени. Эта вкладка уже подключена к сессии.
-          </div>
         </div>
       </div>
     </div>

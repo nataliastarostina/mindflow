@@ -4,57 +4,107 @@
 // ============================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { getAllMaps, createMap, deleteMap, duplicateMap, createDemoMap } from '@/lib/api';
-import { getEditorHref } from '@/lib/routes';
+import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  buildBlankMap,
+  buildDemoMap,
+  createMyMap,
+  deleteMyMap,
+  duplicateMyMap,
+  listMyMaps,
+  migrateLocalMapsToAccount,
+} from '@/lib/api';
+import { getEditorHref, getSharedHref } from '@/lib/routes';
 import type { MapData } from '@/lib/types';
-import { Plus, Trash2, Copy, MoreHorizontal, Clock, Map } from 'lucide-react';
+import { Plus, Trash2, Copy, MoreHorizontal, Clock, Map, LogOut } from 'lucide-react';
 import LanguageSwitcher from '@/components/common/LanguageSwitcher';
 import { formatTopicsCount } from '@/lib/i18n';
 import { useI18n } from '@/stores/useLanguageStore';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 export default function Dashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { language, locale, t } = useI18n();
+  const { user, loading: authLoading, signOut } = useAuth();
   const [maps, setMaps] = useState<MapData[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
-  const refreshMaps = useCallback(() => {
-    setMaps(getAllMaps());
+  // If the URL carries a share slug (`?s=…`), the user landed on the root
+  // via a shareable link. Forward to the editor in shared mode.
+  const shareSlug = searchParams.get('s');
+  useEffect(() => {
+    if (shareSlug) router.replace(getSharedHref(shareSlug));
+  }, [shareSlug, router]);
+
+  // Auth gate.
+  useEffect(() => {
+    if (!authLoading && !user) router.replace('/login');
+  }, [authLoading, user, router]);
+
+  const refreshMaps = useCallback(async () => {
+    const list = await listMyMaps();
+    setMaps(list);
     setLoaded(true);
   }, []);
 
+  // On first authenticated visit, copy any legacy localStorage maps into the
+  // user's account so nothing they made before signing in is lost.
   useEffect(() => {
-    const frameId = window.requestAnimationFrame(refreshMaps);
-    return () => window.cancelAnimationFrame(frameId);
-  }, [refreshMaps]);
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      await migrateLocalMapsToAccount();
+      if (!cancelled) await refreshMaps();
+    })();
+    return () => { cancelled = true; };
+  }, [user, refreshMaps]);
 
-  const handleCreate = () => {
-    const map = createMap(undefined, language);
-    router.push(getEditorHref(map.id));
+  const handleCreate = async () => {
+    const draft = buildBlankMap(undefined, language);
+    const created = await createMyMap(draft);
+    if (created) router.push(getEditorHref(created.id));
   };
 
-  const handleCreateDemo = () => {
-    const map = createDemoMap(language);
-    router.push(getEditorHref(map.id));
+  const handleCreateDemo = async () => {
+    const draft = buildDemoMap(language);
+    const created = await createMyMap(draft);
+    if (created) router.push(getEditorHref(created.id));
   };
 
   const handleOpen = (id: string) => {
     router.push(getEditorHref(id));
   };
 
-  const handleDelete = (id: string) => {
-    deleteMap(id);
-    refreshMaps();
+  const handleDelete = async (id: string) => {
+    await deleteMyMap(id);
+    await refreshMaps();
     setActiveMenu(null);
   };
 
-  const handleDuplicate = (id: string) => {
-    const newMap = duplicateMap(id, language);
-    if (newMap) refreshMaps();
+  const handleDuplicate = async (id: string) => {
+    const newMap = await duplicateMyMap(id, language);
+    if (newMap) await refreshMaps();
     setActiveMenu(null);
   };
+
+  if (authLoading || !user) {
+    return (
+      <div style={{
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: '#FAFBFC',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#94A3B8',
+        fontFamily: "'Inter', sans-serif",
+      }}>
+        {t.common.loading}
+      </div>
+    );
+  }
 
   if (!loaded) {
     return (
@@ -116,6 +166,28 @@ export default function Dashboard() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <LanguageSwitcher />
+          <span style={{ fontSize: 13, color: '#64748B' }}>
+            {user.email || user.user_metadata?.user_name || t.common.you}
+          </span>
+          <button
+            onClick={() => signOut()}
+            title={t.auth.signOut}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 12px',
+              borderRadius: 8,
+              border: '1px solid #E2E8F0',
+              backgroundColor: '#FFFFFF',
+              color: '#475569',
+              fontSize: 13,
+              cursor: 'pointer',
+            }}
+          >
+            <LogOut size={14} />
+            {t.auth.signOut}
+          </button>
           <button
             onClick={handleCreate}
             style={{

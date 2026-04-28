@@ -8,13 +8,17 @@ import type { MindMapNode, MapData, LayoutMode, CommentData, LinkRef, CustomEdge
 import { generateId, computeNodeDimensions } from '@/lib/utils';
 import { NODE_DEFAULTS, BRANCH_COLORS } from '@/lib/constants';
 import { getDocumentDefaultTitle, messages } from '@/lib/i18n';
-import { saveMap as persistMap } from '@/lib/api';
+import { saveMyMap, saveMapBySlug } from '@/lib/api';
 import { useLanguageStore } from './useLanguageStore';
 
 interface MapState {
   mapData: MapData | null;
+  // When set, persist() writes via the public-slug RPC instead of the
+  // owner-scoped table. Lets the editor work for both your own maps and
+  // shared `?s=<slug>` links from a single store.
+  shareSlug: string | null;
   // Actions
-  loadMap: (map: MapData) => void;
+  loadMap: (map: MapData, options?: { shareSlug?: string | null }) => void;
   setTitle: (title: string) => void;
   setLayoutMode: (mode: LayoutMode) => void;
 
@@ -66,9 +70,11 @@ interface MapState {
 export const useMapStore = create<MapState>()(
   immer((set, get) => ({
     mapData: null,
+    shareSlug: null,
 
-    loadMap: (map) =>
+    loadMap: (map, options) =>
       set((state) => {
+        state.shareSlug = options?.shareSlug ?? null;
         state.mapData = {
           ...map,
           comments: map.comments || {},
@@ -813,8 +819,16 @@ export const useMapStore = create<MapState>()(
     },
 
     persist: () => {
-      const { mapData } = get();
-      if (mapData) persistMap(mapData);
+      const { mapData, shareSlug } = get();
+      if (!mapData) return;
+      if (shareSlug) {
+        // Public collaboration via short link — anyone with the slug can save.
+        void saveMapBySlug(shareSlug, mapData);
+      } else {
+        // Owner-scoped save. RLS rejects this for unauthenticated callers,
+        // which is fine — the editor never opens an owned map without a session.
+        void saveMyMap(mapData);
+      }
     },
   }))
 );

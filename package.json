@@ -10,19 +10,16 @@
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.19",
+    "@supabase/supabase-js": "^2.104.1",
     "@xyflow/react": "^12.10.2",
     "html-to-image": "^1.11.13",
     "immer": "^11.1.4",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.7.0",
-    "lz-string": "^1.5.0",
     "nanoid": "^5.1.7",
     "next": "16.2.2",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "y-webrtc": "^10.3.0",
-    "y-websocket": "^3.0.0",
-    "yjs": "^13.6.30",
     "zustand": "^5.0.12"
   },
   "devDependencies": {

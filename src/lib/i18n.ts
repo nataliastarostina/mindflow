@@ -175,6 +175,16 @@ type Messages = {
   shareModal: {
     title: string;
     description: string;
+    errorCouldNotShare: string;
+  };
+  auth: {
+    welcomeTitle: string;
+    welcomeSubtitle: string;
+    emailPlaceholder: string;
+    sendMagicLink: string;
+    checkEmailTitle: string;
+    checkEmailSubtitle: string;
+    signOut: string;
   };
   exportModal: {
     title: string;
@@ -412,7 +422,17 @@ export const messages: Record<Language, Messages> = {
     },
     shareModal: {
       title: 'Share Map',
-      description: "Anyone with this link can view the map. In the full version, you'll be able to set viewer/editor permissions and invite team members.",
+      description: 'Anyone with this link can open and edit the map. The link is unguessable and works for anyone you send it to.',
+      errorCouldNotShare: 'Could not create share link. Please try again.',
+    },
+    auth: {
+      welcomeTitle: 'Welcome to MindFlow',
+      welcomeSubtitle: 'Sign in to access your mind maps from any device.',
+      emailPlaceholder: 'you@example.com',
+      sendMagicLink: 'Send sign-in link',
+      checkEmailTitle: 'Check your inbox',
+      checkEmailSubtitle: 'We sent a sign-in link to {email}. Click it to log in.',
+      signOut: 'Sign out',
     },
     exportModal: {
       title: 'Export Map',
@@ -653,7 +673,17 @@ export const messages: Record<Language, Messages> = {
     },
     shareModal: {
       title: 'Поделиться картой',
-      description: 'Любой, у кого есть эта ссылка, сможет просматривать карту. В полной версии можно будет настраивать права доступа и приглашать участников.',
+      description: 'Любой, у кого есть эта ссылка, сможет открыть и редактировать карту. Ссылка не угадывается и работает для всех, кому вы её отправите.',
+      errorCouldNotShare: 'Не удалось создать ссылку. Попробуйте ещё раз.',
+    },
+    auth: {
+      welcomeTitle: 'Добро пожаловать в MindFlow',
+      welcomeSubtitle: 'Войдите, чтобы ваши карты были доступны с любого устройства.',
+      emailPlaceholder: 'вы@example.com',
+      sendMagicLink: 'Отправить ссылку для входа',
+      checkEmailTitle: 'Проверьте почту',
+      checkEmailSubtitle: 'Мы отправили ссылку для входа на {email}. Кликните по ней, чтобы войти.',
+      signOut: 'Выйти',
     },
     exportModal: {
       title: 'Экспорт карты',
