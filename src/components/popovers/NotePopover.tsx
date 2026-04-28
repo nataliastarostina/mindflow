@@ -25,6 +25,7 @@ import {
   FileText,
   Code2,
   Quote,
+  Trash2,
 } from 'lucide-react';
 import { formatDocumentLabel } from '@/lib/i18n';
 import { useI18n } from '@/stores/useLanguageStore';
@@ -54,7 +55,7 @@ export default function NotePopover() {
     setActivePopover,
     setActiveTextDocumentId,
   } = useUIStore();
-  const { mapData, createTextDocument, updateTextDocument } = useMapStore();
+  const { mapData, createTextDocument, updateTextDocument, deleteTextDocument } = useMapStore();
   const editorRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const savedRangeRef = useRef<Range | null>(null);
@@ -288,6 +289,27 @@ export default function NotePopover() {
 
   const handleTitleChange = (value: string) => {
     titleDraftRef.current = value;
+  };
+
+  const handleDeleteDocument = (documentId: string) => {
+    if (!nodeId) return;
+    const target = documents.find((d) => d.id === documentId);
+    const label = target?.title?.trim() || t.common.untitledDocument;
+    if (typeof window !== 'undefined' && !window.confirm(`${t.common.delete} "${label}"?`)) return;
+
+    const wasActive = documentId === activeDocument.id;
+    const remaining = documents.filter((d) => d.id !== documentId);
+
+    deleteTextDocument(nodeId, documentId);
+
+    if (wasActive) {
+      if (remaining.length > 0) {
+        setActiveTextDocumentId(remaining[0].id);
+      } else {
+        const newId = createTextDocument(nodeId);
+        setActiveTextDocumentId(newId);
+      }
+    }
   };
 
   const toolbarButtonStyle: React.CSSProperties = {
@@ -587,9 +609,8 @@ export default function NotePopover() {
               {documents.map((document, index) => {
                 const isActive = document.id === activeDocument.id;
                 return (
-                  <button
+                  <div
                     key={document.id}
-                    type="button"
                     onClick={() => handleDocumentSelect(document.id)}
                     style={{
                       display: 'flex',
@@ -604,9 +625,10 @@ export default function NotePopover() {
                       cursor: 'pointer',
                       textAlign: 'left',
                     }}
+                    className="note-doc-item"
                   >
                     <FileText size={15} style={{ color: isActive ? '#0F172A' : '#64748B', marginTop: '2px', flexShrink: 0 }} />
-                    <div style={{ minWidth: 0 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
                       <div
                         style={{
                           fontSize: '13px',
@@ -624,7 +646,38 @@ export default function NotePopover() {
                         {formatDocumentLabel(index + 1, language)}
                       </div>
                     </div>
-                  </button>
+                    <button
+                      type="button"
+                      title={t.common.delete}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteDocument(document.id);
+                      }}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '26px',
+                        height: '26px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: 'transparent',
+                        color: '#94A3B8',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                      }}
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLElement).style.backgroundColor = '#FEE2E2';
+                        (e.currentTarget as HTMLElement).style.color = '#E11D48';
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
+                        (e.currentTarget as HTMLElement).style.color = '#94A3B8';
+                      }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 );
               })}
             </div>

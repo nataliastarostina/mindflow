@@ -44,6 +44,7 @@ interface MapState {
   setNodeImage: (nodeId: string, imageUrl: string | null, displayMode?: 'icon' | 'thumbnail' | 'inline') => void;
   createTextDocument: (nodeId: string, title?: string) => string | null;
   updateTextDocument: (nodeId: string, documentId: string, updates: Partial<Pick<TextDocument, 'title' | 'content'>>) => void;
+  deleteTextDocument: (nodeId: string, documentId: string) => void;
   addComment: (nodeId: string, text: string) => void;
   updateComment: (nodeId: string, commentId: string, text: string) => void;
   deleteComment: (nodeId: string, commentId: string) => void;
@@ -576,6 +577,18 @@ export const useMapStore = create<MapState>()(
         }
         document.updatedAt = new Date().toISOString();
         state.mapData.updatedAt = document.updatedAt;
+      }),
+
+    deleteTextDocument: (nodeId, documentId) =>
+      set((state) => {
+        if (!state.mapData) return;
+        const node = state.mapData.nodes[nodeId];
+        if (!node || !Array.isArray(node.textDocuments)) return;
+        const before = node.textDocuments.length;
+        node.textDocuments = node.textDocuments.filter((doc) => doc.id !== documentId);
+        if (node.textDocuments.length !== before) {
+          state.mapData.updatedAt = new Date().toISOString();
+        }
       }),
 
     addComment: (nodeId, text) =>
