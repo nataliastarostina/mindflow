@@ -995,7 +995,7 @@ export default function Canvas() {
         nodesConnectable={Boolean(selectedCustomEdgeId)}
         edgesReconnectable
         elementsSelectable
-        panOnDrag={!dragPreview && !connectorPending ? [1, 2] : false}
+        panOnDrag={!dragPreview && !connectorPending ? [0, 1, 2] : false}
         autoPanOnConnect
         zoomOnScroll={false}
         zoomOnPinch
