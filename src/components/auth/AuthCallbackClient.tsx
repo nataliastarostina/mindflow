@@ -9,8 +9,17 @@ export default function AuthCallbackClient() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // In the implicit flow Supabase puts tokens in the URL fragment (#…).
+    // Errors may appear in either the search string or the hash.
     const url = new URL(window.location.href);
-    const errorParam = url.searchParams.get('error_description') || url.searchParams.get('error');
+    const hashParams = new URLSearchParams(
+      url.hash.startsWith('#') ? url.hash.slice(1) : url.hash
+    );
+    const errorParam =
+      url.searchParams.get('error_description') ||
+      url.searchParams.get('error') ||
+      hashParams.get('error_description') ||
+      hashParams.get('error');
     if (errorParam) {
       setError(errorParam);
       return;
@@ -24,32 +33,11 @@ export default function AuthCallbackClient() {
       router.replace('/');
     };
 
-    const code = url.searchParams.get('code');
-
-    const run = async () => {
-      // First check if a session is already present (detectSessionInUrl may
-      // have already exchanged the code on client init).
-      const existing = await supabase.auth.getSession();
-      if (existing.data.session) {
-        goHome();
-        return;
-      }
-
-      if (code) {
-        const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-        if (cancelled) return;
-        if (exchangeError) {
-          setError(exchangeError.message);
-          return;
-        }
-        if (data.session) {
-          goHome();
-          return;
-        }
-      }
-    };
-
-    run();
+    // detectSessionInUrl: true (see lib/supabase.ts) already parses the hash
+    // and persists the session before our effect runs. We just observe.
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) goHome();
+    });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) goHome();
